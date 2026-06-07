@@ -1,0 +1,9 @@
+pandas
+requests
+python-dotenv
+xmltodict
+
+sentence-transformers
+faiss-cpu
+torch
+numpy
