@@ -5,16 +5,36 @@ df = pd.read_csv(
     encoding="utf-8-sig"
 )
 
-# 결측치 처리
-df = df.fillna("")
+# 컬럼별 결측치 처리
+if "source" in df.columns:
+    df["source"] = df["source"].fillna("기타")
 
+if "name" in df.columns:
+    df["name"] = df["name"].fillna("이름 없음")
+
+if "category" in df.columns:
+    df["category"] = df["category"].fillna("기타")
+
+if "address" in df.columns:
+    df["address"] = df["address"].fillna("주소 정보 없음")
+
+if "period" in df.columns:
+    df["period"] = df["period"].fillna("정보 없음")
+
+if "description" in df.columns:
+    df["description"] = df["description"].fillna("")
+
+if "items" in df.columns:
+    df["items"] = df["items"].fillna("없음")
+
+# RAG용 content 생성
 df["content"] = (
-    "데이터유형: " + df["source"].astype(str)
+    "유형: " + df["source"].astype(str)
     + "\n이름: " + df["name"].astype(str)
-    + "\n위치: " + df["address"].astype(str)
-    + "\n시기: " + df["period"].astype(str)
-    + "\n설명: " + df["description"].astype(str)
     + "\n분류: " + df["category"].astype(str)
+    + "\n주소: " + df["address"].astype(str)
+    + "\n기간: " + df["period"].astype(str)
+    + "\n설명: " + df["description"].astype(str)
     + "\n관련 품목: " + df["items"].astype(str)
 )
 
@@ -25,4 +45,11 @@ df.to_csv(
 )
 
 print("content 컬럼 생성 완료")
-print(df[["name", "content"]].head())
+print(
+    df[
+        [
+            "name",
+            "content"
+        ]
+    ].head()
+)

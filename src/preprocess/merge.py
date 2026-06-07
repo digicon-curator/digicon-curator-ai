@@ -16,11 +16,13 @@ street = pd.read_csv(
     "data/processed/streetProcessed.csv"
 )
 
-festival["source"] = "festival"
-heritage["source"] = "heritage"
-market["source"] = "market"
-street["source"] = "street"
+# 데이터 유형 지정
+festival["source"] = "축제"
+heritage["source"] = "문화재"
+market["source"] = "전통시장"
+street["source"] = "특화거리"
 
+# 전체 컬럼 수집
 all_columns = set()
 
 for df in [
@@ -33,11 +35,13 @@ for df in [
 
 all_columns = list(all_columns)
 
+# 없는 컬럼 자동 생성
 festival = festival.reindex(columns=all_columns)
 heritage = heritage.reindex(columns=all_columns)
 market = market.reindex(columns=all_columns)
 street = street.reindex(columns=all_columns)
 
+# 데이터 병합
 merged = pd.concat(
     [
         festival,
@@ -47,6 +51,31 @@ merged = pd.concat(
     ],
     ignore_index=True
 )
+
+# 컬럼 순서 통일
+column_order = [
+    "source",
+    "name",
+    "category",
+    "address",
+    "period",
+    "description",
+    "items"
+]
+
+existing_columns = [
+    col for col in column_order
+    if col in merged.columns
+]
+
+other_columns = [
+    col for col in merged.columns
+    if col not in existing_columns
+]
+
+merged = merged[
+    existing_columns + other_columns
+]
 
 merged.to_csv(
     "data/processed/Data.csv",

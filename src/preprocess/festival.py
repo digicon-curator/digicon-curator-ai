@@ -9,6 +9,7 @@ columns = [
     "title",
     "description",
     "spatialCoverage",
+    "subjectKeyword",
     "eventPeriod"
 ]
 
@@ -19,7 +20,8 @@ df = df.rename(
         "title": "name",
         "description": "description",
         "spatialCoverage": "address",
-        "eventPeriod": "period"
+        "eventPeriod": "period",
+        "subjectKeyword": "category"
     }
 )
 
