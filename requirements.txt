@@ -7,3 +7,5 @@ sentence-transformers
 faiss-cpu
 torch
 numpy
+
+google-generativeai

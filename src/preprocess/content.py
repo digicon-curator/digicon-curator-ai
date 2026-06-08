@@ -22,7 +22,7 @@ if "period" in df.columns:
     df["period"] = df["period"].fillna("정보 없음")
 
 if "description" in df.columns:
-    df["description"] = df["description"].fillna("")
+    df["description"] = df["description"].fillna("설명 정보 없음")
 
 if "items" in df.columns:
     df["items"] = df["items"].fillna("없음")
