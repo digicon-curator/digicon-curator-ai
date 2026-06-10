@@ -16,8 +16,7 @@ src
 │  ├─ festival.py
 │  ├─ heritage.py
 │  ├─ market.py
-│  ├─ Street.py
-│  └─ localCulture.py
+│  └─ Street.py
 
 ├─ preprocess
 │  ├─ merge.py
@@ -37,7 +36,6 @@ src
     - heritage.py	문화재 데이터 수집
     - market.py	전통시장 데이터 수집
     - specialStreet.py	특화거리 데이터 수집
-    - localCulture.py	향토문화 데이터 수집
 - 전처리
     - merge.py	수집 데이터 병합
     - content.py	RAG 학습용 content 생성
@@ -65,7 +63,6 @@ src
 
 # 데이터 
 - 문화체육관광부_지역축제정보: API
-- 한국학중앙연구원 외_한국의 향토 문화: API (미사용)
 - 문화재청_문화재정보: API
 - 전국전통시장표준데이터: CSV
 - 전국지역특화거리표준데이터: CSV
