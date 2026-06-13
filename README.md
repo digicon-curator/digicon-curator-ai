@@ -8,26 +8,26 @@
 - 가상환경 비활성화
     deactivate
 
-# 프로젝트 구조
+## 프로젝트 구조
+
+```text
 src
 ├─ api
-│   ├─ festival.py
-│   ├─ heritage.py
-│   ├─ market.py
-│   └─ Street.py
-
+│  ├─ festival.py
+│  ├─ heritage.py
+│  ├─ market.py
+│  └─ Street.py
 ├─ preprocess
-│   ├─ merge.py
-│   └─ content.py
-
+│  ├─ merge.py
+│  └─ content.py
 ├─ rag
-│   ├─ embed.py
-│   ├─ build_index.py
-│   ├─ search.py
-│   ├─ generate.py
-│   ├─ discover.py
-│   └─ trend.py
-
+│  ├─ embed.py
+│  ├─ build_index.py
+│  ├─ search.py
+│  ├─ generate.py
+│  ├─ discover.py
+│  └─ trend.py
+```
 # 파일 설명
 - API 수집
     - festival.py	지역 축제 데이터 수집
