@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 
 df = pd.read_csv(
@@ -5,38 +6,88 @@ df = pd.read_csv(
     encoding="utf-8-sig"
 )
 
-# 컬럼별 결측치 처리
-if "source" in df.columns:
-    df["source"] = df["source"].fillna("기타")
+def clean_text(text):
 
-if "name" in df.columns:
-    df["name"] = df["name"].fillna("이름 없음")
+    if pd.isna(text):
+        return ""
 
-if "category" in df.columns:
-    df["category"] = df["category"].fillna("기타")
+    text = str(text)
 
-if "address" in df.columns:
-    df["address"] = df["address"].fillna("주소 정보 없음")
+    # 줄바꿈 제거
+    text = text.replace("\n", " ")
+    text = text.replace("\r", " ")
 
-if "period" in df.columns:
-    df["period"] = df["period"].fillna("정보 없음")
+    # 특수기호 제거
+    text = re.sub(r"[○●▶■◆※]", " ", text)
 
-if "description" in df.columns:
-    df["description"] = df["description"].fillna("설명 정보 없음")
+    # 느낌표 여러 개 제거
+    text = re.sub(r"!+", " ", text)
 
-if "items" in df.columns:
-    df["items"] = df["items"].fillna("없음")
+    # 공백 정리
+    text = re.sub(r"\s+", " ", text)
 
-# RAG용 content 생성
-df["content"] = (
-    "유형: " + df["source"].astype(str)
-    + "\n이름: " + df["name"].astype(str)
-    + "\n분류: " + df["category"].astype(str)
-    + "\n주소: " + df["address"].astype(str)
-    + "\n기간: " + df["period"].astype(str)
-    + "\n설명: " + df["description"].astype(str)
-    + "\n관련 품목: " + df["items"].astype(str)
-)
+    return text.strip()
+
+contents = []
+
+for _, row in df.iterrows():
+
+    source = clean_text(
+        row.get("source", "")
+    )
+
+    name = clean_text(
+        row.get("name", "")
+    )
+
+    category = clean_text(
+        row.get("category", "")
+    )
+
+    address = clean_text(
+        row.get("address", "")
+    )
+
+    period = clean_text(
+        row.get("period", "")
+    )
+
+    description = clean_text(
+        row.get("description", "")
+    )
+
+    items = clean_text(
+        row.get("items", "")
+    )
+
+    content = f"""
+[유형]
+{source}
+
+[이름]
+{name}
+
+[분류]
+{category}
+
+[지역]
+{address}
+
+[기간]
+{period}
+
+[설명]
+{description}
+
+[관련정보]
+{items}
+"""
+
+    contents.append(
+        content.strip()
+    )
+
+df["content"] = contents
 
 df.to_csv(
     "data/processed/Data.csv",
@@ -44,12 +95,5 @@ df.to_csv(
     encoding="utf-8-sig"
 )
 
-print("content 컬럼 생성 완료")
-print(
-    df[
-        [
-            "name",
-            "content"
-        ]
-    ].head()
-)
+print("content 생성 완료")
+print(df.shape)

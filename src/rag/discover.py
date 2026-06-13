@@ -38,7 +38,7 @@ region = input(
 )
 
 # ==========================================
-# 지역 데이터 추출
+# 지역 데이터 조회
 # ==========================================
 
 region_df = df[
@@ -60,18 +60,55 @@ print(
 )
 
 # ==========================================
+# Source 균형 추출
+# ==========================================
+
+MAX_PER_SOURCE = 10
+
+heritage_df = region_df[
+    region_df["source"] == "문화재"
+].head(MAX_PER_SOURCE)
+
+festival_df = region_df[
+    region_df["source"] == "축제"
+].head(MAX_PER_SOURCE)
+
+market_df = region_df[
+    region_df["source"] == "전통시장"
+].head(MAX_PER_SOURCE)
+
+street_df = region_df[
+    region_df["source"] == "특화거리"
+].head(MAX_PER_SOURCE)
+
+balanced_df = pd.concat(
+    [
+        heritage_df,
+        festival_df,
+        market_df,
+        street_df
+    ],
+    ignore_index=True
+)
+
+print(
+    f"분석 대상 데이터 수 : {len(balanced_df)}"
+)
+
+# ==========================================
 # Context 생성
 # ==========================================
 
 context = ""
 
-for _, row in region_df.head(50).iterrows():
+for _, row in balanced_df.iterrows():
 
     context += f"""
-이름: {row.get('name', '')}
 유형: {row.get('source', '')}
+이름: {row.get('name', '')}
 분류: {row.get('category', '')}
-주소: {row.get('address', '')}
+지역: {row.get('address', '')}
+기간: {row.get('period', '')}
 설명: {row.get('description', '')}
 
 ----------------------------------------
@@ -84,35 +121,44 @@ for _, row in region_df.head(50).iterrows():
 prompt = f"""
 당신은 지역 문화 연구원입니다.
 
-다음은 {region} 지역의 문화 데이터입니다.
+지역:
+{region}
 
+문화 데이터:
 {context}
 
-아래 내용을 분석하세요.
+목표
 
-1. 이 지역을 대표하는 문화 자산은 무엇인가?
-2. 이 지역의 문화적 특징은 무엇인가?
-3. 관광 자원으로 활용 가능한 핵심 콘텐츠는 무엇인가?
-4. 다른 지역과 차별화되는 문화적 강점은 무엇인가?
-5. 향후 발전 가능성이 높은 문화 콘텐츠는 무엇인가?
+단순히 문화재나 축제 목록을 나열하지 말고,
+지역을 대표하는 문화 정체성과 문화 자산을 분석하세요.
+
+분석 항목
+
+1. 대표 문화 자산
+2. 지역 문화 정체성
+3. 다른 지역과 차별화되는 특징
+4. 관광 활용 가능성
+5. 발전 가능성이 높은 문화 콘텐츠
 
 규칙
 
 - 제공된 데이터만 기반으로 분석하세요.
 - 없는 사실은 추측하지 마세요.
+- 문화재, 축제, 전통시장, 특화거리를 종합적으로 고려하세요.
+- 단순 나열보다 의미를 분석하세요.
 - 보고서 형식으로 작성하세요.
 
 출력 형식
 
-[지역 문화 자산 발굴 결과]
-
 [대표 문화 자산]
 
-[문화적 특징]
+[지역 문화 정체성]
+
+[차별화 요소]
 
 [관광 활용 가능성]
 
-[잠재력 있는 문화 콘텐츠]
+[발전 가능성이 높은 콘텐츠]
 """
 
 # ==========================================
