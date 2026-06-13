@@ -24,7 +24,9 @@ src
 │  ├─ embed.py
 │  ├─ build_index.py
 │  ├─ search.py
-│  ├─ generate.py
+│  ├─ recommend.py
+│  ├─ story.py
+│  ├─ travel.py
 │  ├─ discover.py
 │  └─ trend.py
 ```
@@ -36,12 +38,14 @@ src
     - specialStreet.py	특화거리 데이터 수집
 - 전처리
     - merge.py	수집 데이터 병합
-    - content.py	RAG 학습용 content 생성
+    - content.py RAG 학습용 content 생성
 - RAG
     - embed.py	임베딩 생성
-    - build_index.py	FAISS 인덱스 생성
+    - build_index.py FAISS 인덱스 생성
     - search.py	벡터 검색 테스트
-    - generate.py	문화 추천, 스토리 생성, 맞춤형 여행 추천
+    - recommend.py AI 기반 지역 문화
+    - story.py AI 지역 스토리 생성
+    - travel.py AI 맞춤형 로컬 여행 추천 
     - discover.py	지역 문화 자산 발굴
     - trend.py	문화 트렌드 분석
 
@@ -55,7 +59,9 @@ src
 4. FAISS 인덱스 생성
     python src/rag/build_index.py
 5. AI 기능 실행
-    python src/rag/generate.py
+    python src/rag/recommend.py
+    python src/rag/story.py
+    python src/rag/travel.py
     python src/rag/discover.py
     python src/rag/trend.py
 
