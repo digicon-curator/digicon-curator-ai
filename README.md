@@ -59,13 +59,13 @@ src
 4. FAISS 인덱스 생성
     python src/rag/build_index.py
 5. AI 기능 실행
-    ''' text
+    ```text
     python src/rag/recommend.py
     python src/rag/story.py
     python src/rag/travel.py
     python src/rag/discover.py
     python src/rag/trend.py
-    '''
+    ```
 
 # 데이터 
 - 문화체육관광부_지역축제정보: API
