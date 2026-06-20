@@ -1,41 +1,20 @@
 import pandas as pd
 
-festival = pd.read_csv(
-    "data/processed/festivalProcessed.csv",
+df = pd.read_csv(
+    "data/processed/Data.csv",
     encoding="utf-8-sig"
 )
 
-heritage = pd.read_csv(
-    "data/processed/heritageProcessed.csv",
-    encoding="utf-8-sig"
-)
+'''print(df.shape)
 
-print("===== Festival 컬럼 =====")
-print(festival.columns.tolist())
+print("\n===== source 분포 =====")
+print(df["source"].value_counts())
 
-print("\n===== Heritage 컬럼 =====")
-print(heritage.columns.tolist())
+print("\n===== 결측치 =====")
+print(df.isnull().sum())'''
 
-print("\n===== Festival 주소 결측치 =====")
-print(festival["address"].isna().sum())
-print("전체:", len(festival))
+print(df.columns.tolist())
 
-print("\n===== Heritage 주소 결측치 =====")
-print(heritage["address"].isna().sum())
-print("전체:", len(heritage))
+print(df[["description", "description.1"]].head())
 
-print(
-    festival[
-        [
-            "name",
-            "address"
-        ]
-    ].head(20)
-)
-
-festival_raw = pd.read_csv(
-    "data/raw/festival.csv",
-    encoding="utf-8-sig"
-)
-
-print(festival_raw.columns.tolist())
+print(df[["items", "items.1"]].head())

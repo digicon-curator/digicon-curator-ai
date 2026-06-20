@@ -1,36 +1,42 @@
 import pandas as pd
 
 df = pd.read_csv(
-    "data/raw/heritage.csv",
-    encoding="utf-8-sig"
+    "data/raw/문화재청_문화재정보(20260607).csv",
+    encoding="utf-8-sig",
+    low_memory=False
+)
+
+df["items"] = (
+    df["EXTENT"].fillna("").astype(str)
+    + " "
+    + df["MEDIUM"].fillna("").astype(str)
 )
 
 columns = [
-    "title",
-    "description",
-    "spatial",
-    "subjectKeyword",
-    "extent",
+    "TITLE",
+    "SUBJECTKEYWORD",
+    "DESCRIPTION",
+    "SPATIAL",
+    "items"
 ]
 
 df = df[columns]
 
 df = df.rename(
     columns={
-        "title": "name",
-        "description": "description",
-        "spatial": "address",
-        "subjectKeyword": "category",
-        "extent": "period",
+        "TITLE": "name",
+        "SUBJECTKEYWORD": "category",
+        "DESCRIPTION": "description",
+        "SPATIAL": "address"
     }
 )
 
 df.to_csv(
-    "data/processed/heritageProcessed.csv",
+    "data/processed/heritage.csv",
     index=False,
     encoding="utf-8-sig"
 )
 
-print("heritageProcessed.csv 저장 완료")
+print("heritage.csv 저장 완료")
 print(df.shape)
 print(df.head())

@@ -15,8 +15,9 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Raw Data
+# Data
 data/raw/
+data/processed/
 
 # Embedding & Vector DB
 *.npy

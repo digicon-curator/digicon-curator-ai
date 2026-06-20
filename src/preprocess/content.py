@@ -1,10 +1,18 @@
 import re
 import pandas as pd
 
+# ==========================================
+# Data 로드
+# ==========================================
+
 df = pd.read_csv(
     "data/processed/Data.csv",
     encoding="utf-8-sig"
 )
+
+# ==========================================
+# 텍스트 정제 함수
+# ==========================================
 
 def clean_text(text):
 
@@ -17,16 +25,32 @@ def clean_text(text):
     text = text.replace("\n", " ")
     text = text.replace("\r", " ")
 
-    # 특수기호 제거
-    text = re.sub(r"[○●▶■◆※]", " ", text)
+    # 특수문자 제거
+    text = re.sub(
+        r"[○●▶■◆※]",
+        " ",
+        text
+    )
 
-    # 느낌표 여러 개 제거
-    text = re.sub(r"!+", " ", text)
+    # 느낌표 정리
+    text = re.sub(
+        r"!+",
+        " ",
+        text
+    )
 
-    # 공백 정리
-    text = re.sub(r"\s+", " ", text)
+    # 연속 공백 제거
+    text = re.sub(
+        r"\s+",
+        " ",
+        text
+    )
 
     return text.strip()
+
+# ==========================================
+# Content 생성
+# ==========================================
 
 contents = []
 
@@ -60,32 +84,52 @@ for _, row in df.iterrows():
         row.get("items", "")
     )
 
-    content = f"""
-[유형]
-{source}
+    parts = []
 
-[이름]
-{name}
+    if source:
+        parts.append(
+            f"유형: {source}"
+        )
 
-[분류]
-{category}
+    if name:
+        parts.append(
+            f"이름: {name}"
+        )
 
-[지역]
-{address}
+    if category:
+        parts.append(
+            f"분류: {category}"
+        )
 
-[기간]
-{period}
+    if address:
+        parts.append(
+            f"주소: {address}"
+        )
 
-[설명]
-{description}
+    if period:
+        parts.append(
+            f"기간: {period}"
+        )
 
-[관련정보]
-{items}
-"""
+    if description:
+        parts.append(
+            f"설명: {description}"
+        )
+
+    if items:
+        parts.append(
+            f"부가정보: {items}"
+        )
+
+    content = "\n".join(parts)
 
     contents.append(
-        content.strip()
+        content
     )
+
+# ==========================================
+# 저장
+# ==========================================
 
 df["content"] = contents
 
@@ -97,3 +141,6 @@ df.to_csv(
 
 print("content 생성 완료")
 print(df.shape)
+
+print("\n===== Content 예시 =====\n")
+print(df["content"].iloc[0])
