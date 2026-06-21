@@ -74,6 +74,18 @@ def normalizeRegion(value):
     return regionAliases.get(token, regionAliases.get(value, token))
 
 
+def normalizeLocalRegion(value):
+    value = cleanValue(value)
+    if not value:
+        return ""
+
+    parts = value.split()
+    if len(parts) >= 2:
+        return f"{normalizeRegion(parts[0])} {parts[1]}"
+
+    return normalizeRegion(value)
+
+
 def detectRegion(text):
     text = cleanValue(text)
     if not text:
@@ -83,6 +95,28 @@ def detectRegion(text):
     for alias in aliases:
         if alias in text:
             return regionAliases[alias]
+
+    return ""
+
+
+def detectLocalRegionFromData(text, df):
+    text = cleanValue(text)
+    if not text or "address" not in df.columns:
+        return ""
+
+    candidates = set()
+    for address in df["address"].dropna().astype(str):
+        localRegion = normalizeLocalRegion(address)
+        if localRegion:
+            candidates.add(localRegion)
+
+    for candidate in sorted(candidates, key=len, reverse=True):
+        if candidate in text:
+            return candidate
+
+        shortCandidate = re.sub(r"(특별시|광역시|특별자치시|특별자치도|시|군|구|도)$", "", candidate)
+        if len(shortCandidate) >= 2 and shortCandidate in text:
+            return candidate
 
     return ""
 
@@ -122,6 +156,18 @@ def filterByRegion(df, region):
     return df[df["address"].fillna("").astype(str).str.contains(pattern, regex=True, na=False)]
 
 
+def filterByLocalRegion(df, localRegion):
+    if not localRegion or "address" not in df.columns:
+        return df
+
+    return df[
+        df["address"]
+        .fillna("")
+        .astype(str)
+        .apply(lambda address: normalizeLocalRegion(address) == localRegion)
+    ]
+
+
 def applyQualityFilter(df, minDescriptionLen=20):
     if "description" not in df.columns:
         return df
@@ -144,11 +190,11 @@ def dedupeRows(rows):
     return results
 
 
-def faissSearchRows(df, embeddings, embeddingModel, query, k=40):
+def faissSearchRows(df, embeddings, embeddingModel, query, k=40, useOriginalIndex=False):
     if df.empty:
         return []
 
-    if "originalIndex" in df.columns and df["originalIndex"].astype(int).max() < len(embeddings):
+    if useOriginalIndex and "originalIndex" in df.columns:
         embeddingIndices = df["originalIndex"].astype(int).to_numpy()
     else:
         embeddingIndices = df.index.to_numpy()
@@ -201,6 +247,45 @@ def balancedBySource(rows, limit=15):
             break
 
     return results
+
+
+def sourceBalancedFaissSearch(
+    df,
+    embeddings,
+    embeddingModel,
+    query,
+    kPerSource=20,
+    limit=15,
+    useOriginalIndex=False,
+):
+    if df.empty:
+        return []
+
+    sourceResults = []
+    sources = list(sourceOrder)
+    extraSources = [
+        source
+        for source in df["source"].dropna().astype(str).unique()
+        if source not in sourceOrder
+    ]
+
+    for source in sources + extraSources:
+        sourceDf = df[df["source"] == source]
+        if sourceDf.empty:
+            continue
+
+        sourceResults.extend(
+            faissSearchRows(
+                sourceDf,
+                embeddings,
+                embeddingModel,
+                query,
+                k=kPerSource,
+                useOriginalIndex=useOriginalIndex,
+            )
+        )
+
+    return balancedBySource(sourceResults, limit=limit)
 
 
 def buildContext(rows):

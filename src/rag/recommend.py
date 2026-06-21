@@ -7,26 +7,24 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
 try:
-    from src.rag.paths import getDataPath, getEmbeddingPath
+    from src.rag.paths import getDataPath, getEmbeddingPath, originalEmbeddingPath
     from src.rag.utils import (
         applyQualityFilter,
-        balancedBySource,
         buildContext,
         detectRegion,
         detectRegionFromData,
-        faissSearchRows,
         filterByRegion,
+        sourceBalancedFaissSearch,
     )
 except ModuleNotFoundError:
-    from paths import getDataPath, getEmbeddingPath
+    from paths import getDataPath, getEmbeddingPath, originalEmbeddingPath
     from utils import (
         applyQualityFilter,
-        balancedBySource,
         buildContext,
         detectRegion,
         detectRegionFromData,
-        faissSearchRows,
         filterByRegion,
+        sourceBalancedFaissSearch,
     )
 
 
@@ -36,8 +34,10 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 embeddingModel = SentenceTransformer("intfloat/multilingual-e5-base")
 
+embeddingPath = getEmbeddingPath()
 df = pd.read_csv(getDataPath(), encoding="utf-8-sig")
-embeddings = np.load(getEmbeddingPath())
+embeddings = np.load(embeddingPath)
+useOriginalIndex = embeddingPath == originalEmbeddingPath and "originalIndex" in df.columns
 
 print("\n===== AI 지역 문화 추천 =====")
 
@@ -52,14 +52,15 @@ if region:
 
 candidateDf = applyQualityFilter(candidateDf, minDescriptionLen=20)
 
-searchResults = faissSearchRows(
+balancedResults = sourceBalancedFaissSearch(
     candidateDf,
     embeddings,
     embeddingModel,
     query,
-    k=60,
+    kPerSource=12,
+    limit=15,
+    useOriginalIndex=useOriginalIndex,
 )
-balancedResults = balancedBySource(searchResults, limit=15)
 
 print("\n===== 추천 검색 결과 =====\n")
 if region:

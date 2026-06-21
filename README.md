@@ -6,7 +6,7 @@
 
 - 지역 문화 추천: 사용자 질문에서 지역명을 감지하고, 해당 지역 데이터를 우선 검색해 문화 콘텐츠를 추천합니다.
 - 지역 문화 스토리: 문화재, 향토문화, 행사, 축제, 공연, 전통시장, 특화거리를 연결해 지역성 중심의 스토리를 생성합니다.
-- 맞춤형 여행 추천: 관심사, 분위기, 목적을 바탕으로 Gemini가 지역을 선정하고 하루 여행 코스를 제안합니다.
+- 맞춤형 여행 추천: 관심사, 분위기, 목적을 바탕으로 Gemini가 시군구 단위 지역을 선정하고 하루 여행 코스를 제안합니다.
 - 문화 트렌드 분석: source, category, 지역, 문화 키워드 분포를 분석합니다.
 - 데이터 큐레이션: 원본 대용량 데이터를 품질 기준과 source/지역 균형 기준으로 축소합니다.
 
@@ -134,6 +134,8 @@ python src/preprocess/content.py
 
 `dataCurated.csv`가 있으면 자동으로 축소 데이터를 우선 사용합니다. 없으면 `Data.csv`를 사용합니다.
 
+`content.py`는 검색 품질을 높이기 위해 URL, 이메일, 전화번호, 홈페이지/문의 안내, 반복 문장부호, HTML 태그와 엔티티, 너무 짧은 설명을 제거합니다. 지역 정보는 광역 단위가 아니라 가능한 시군구 단위로 `content`에 포함합니다.
+
 ### 4. 임베딩 생성
 
 ```powershell
@@ -221,14 +223,14 @@ $env:CURATOR_INDEX_PATH="data/processed/data.index"
 
 - `src/preprocess/merge.py`: source별 전처리 데이터를 `Data.csv`로 병합합니다.
 - `src/preprocess/curate.py`: 대용량 원본 데이터를 품질과 균형 기준으로 축소합니다.
-- `src/preprocess/content.py`: RAG 검색용 `content` 컬럼을 생성합니다.
+- `src/preprocess/content.py`: RAG 검색용 `content` 컬럼을 생성하고 노이즈 텍스트를 제거합니다.
 - `src/rag/paths.py`: 축소 데이터와 원본 데이터 경로를 자동 선택합니다.
-- `src/rag/utils.py`: 지역 감지, 품질 필터, 지역 필터, FAISS 검색, source 균형화를 담당합니다.
+- `src/rag/utils.py`: 지역 감지, 시군구 정규화, 품질 필터, 지역 필터, FAISS 검색, source 균형화를 담당합니다.
 - `src/rag/embed.py`: SentenceTransformer 임베딩을 생성합니다.
 - `src/rag/buildIndex.py`: FAISS 인덱스를 생성합니다.
 - `src/rag/recommend.py`: 지역 문화 추천을 실행합니다.
 - `src/rag/story.py`: 지역 문화 스토리를 생성합니다.
-- `src/rag/travel.py`: 사용자 취향 기반 여행 코스를 추천합니다.
+- `src/rag/travel.py`: 사용자 취향 기반 시군구 단위 여행 코스를 추천합니다.
 - `src/rag/discover.py`: 특정 지역의 문화 자산을 요약하고 발견합니다.
 - `src/rag/trend.py`: 문화 데이터 분포와 키워드를 분석합니다.
 

@@ -7,26 +7,30 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
 try:
-    from src.rag.paths import getDataPath, getEmbeddingPath
+    from src.rag.paths import getDataPath, getEmbeddingPath, originalEmbeddingPath
     from src.rag.utils import (
         applyQualityFilter,
-        balancedBySource,
         buildContext,
+        detectLocalRegionFromData,
         detectRegion,
         faissSearchRows,
-        filterByRegion,
+        filterByLocalRegion,
+        normalizeLocalRegion,
         normalizeRegion,
+        sourceBalancedFaissSearch,
     )
 except ModuleNotFoundError:
-    from paths import getDataPath, getEmbeddingPath
+    from paths import getDataPath, getEmbeddingPath, originalEmbeddingPath
     from utils import (
         applyQualityFilter,
-        balancedBySource,
         buildContext,
+        detectLocalRegionFromData,
         detectRegion,
         faissSearchRows,
-        filterByRegion,
+        filterByLocalRegion,
+        normalizeLocalRegion,
         normalizeRegion,
+        sourceBalancedFaissSearch,
     )
 
 
@@ -36,8 +40,10 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 embeddingModel = SentenceTransformer("intfloat/multilingual-e5-base")
 
+embeddingPath = getEmbeddingPath()
 df = pd.read_csv(getDataPath(), encoding="utf-8-sig")
-embeddings = np.load(getEmbeddingPath())
+embeddings = np.load(embeddingPath)
+useOriginalIndex = embeddingPath == originalEmbeddingPath and "originalIndex" in df.columns
 
 print("\n===== AI 맞춤형 로컬 여행 추천 =====")
 
@@ -58,17 +64,29 @@ initialResults = faissSearchRows(
     embeddings,
     embeddingModel,
     searchQuery,
-    k=80,
+    k=120,
+    useOriginalIndex=useOriginalIndex,
 )
 
-regionCount = {}
+localRegionCount = {}
 for row in initialResults:
-    region = normalizeRegion(row.get("address", ""))
-    if not region:
+    localRegion = normalizeLocalRegion(row.get("address", ""))
+    if not localRegion:
         continue
-    regionCount[region] = regionCount.get(region, 0) + 1
+    localRegionCount[localRegion] = localRegionCount.get(localRegion, 0) + 1
 
-topRegions = sorted(regionCount.items(), key=lambda item: item[1], reverse=True)[:5]
+topLocalRegions = sorted(
+    localRegionCount.items(),
+    key=lambda item: item[1],
+    reverse=True,
+)[:8]
+
+if not topLocalRegions:
+    topLocalRegions = [
+        (normalizeLocalRegion(row.get("address", "")), 1)
+        for row in initialResults
+        if normalizeLocalRegion(row.get("address", ""))
+    ][:8]
 
 regionPrompt = f"""
 사용자 정보
@@ -78,30 +96,39 @@ regionPrompt = f"""
 선호 분위기: {mood}
 여행 목적: {purpose}
 
-추천 후보 지역:
-{topRegions}
+추천 후보 시군구:
+{topLocalRegions}
 
-위 후보 중 사용자에게 가장 적합한 지역 1곳만 고르세요.
-반드시 지역명만 출력하세요.
+위 후보 중 사용자에게 가장 적합한 시군구 1곳만 고르세요.
+반드시 후보 목록에 있는 시군구 이름만 출력하세요.
+예: 경기 수원시, 충남 서천군, 서울 종로구
 """
 
 selectedRegionText = model.generate_content(regionPrompt).text.strip()
-selectedRegion = detectRegion(selectedRegionText) or normalizeRegion(selectedRegionText)
+selectedLocalRegion = detectLocalRegionFromData(selectedRegionText, qualityDf)
 
-print(f"\n추천 지역: {selectedRegion}")
+if not selectedLocalRegion and topLocalRegions:
+    selectedLocalRegion = topLocalRegions[0][0]
 
-regionDf = filterByRegion(qualityDf, selectedRegion)
+selectedBroadRegion = detectRegion(selectedRegionText) or normalizeRegion(selectedRegionText)
+
+print(f"\n추천 시군구: {selectedLocalRegion}")
+if selectedBroadRegion and selectedBroadRegion != selectedLocalRegion:
+    print(f"참고 광역 지역: {selectedBroadRegion}")
+
+regionDf = filterByLocalRegion(qualityDf, selectedLocalRegion)
 if regionDf.empty:
     regionDf = qualityDf
 
-regionResults = faissSearchRows(
+travelData = sourceBalancedFaissSearch(
     regionDf,
     embeddings,
     embeddingModel,
     searchQuery,
-    k=60,
+    kPerSource=10,
+    limit=15,
+    useOriginalIndex=useOriginalIndex,
 )
-travelData = balancedBySource(regionResults, limit=15)
 
 print("\n===== 여행 추천 검색 결과 =====\n")
 for row in travelData:
@@ -121,8 +148,8 @@ prompt = f"""
 선호 분위기: {mood}
 여행 목적: {purpose}
 
-추천 지역:
-{selectedRegion}
+추천 시군구:
+{selectedLocalRegion}
 
 지역 문화 데이터:
 {context}
@@ -133,18 +160,19 @@ prompt = f"""
 
 규칙
 
-1. 추천 지역의 데이터만 중심으로 사용하세요.
-2. 검색 결과에 없는 장소나 행사는 만들지 마세요.
-3. 문화재, 향토문화, 행사, 공연, 축제, 전통시장, 특화거리를 가능한 한 균형 있게 활용하세요.
-4. 같은 장소를 반복하지 마세요.
-5. 실제 여행 일정처럼 오전, 점심, 오후, 저녁 흐름으로 작성하세요.
-6. 연령대, 관심사, 분위기, 목적을 모두 반영하세요.
-7. 최소 3개 이상의 문화 자산을 사용하세요.
-8. 각 코스마다 왜 그 시간대에 적합한지 간단히 설명하세요.
+1. 추천 지역은 광역 단위가 아니라 시군구 단위로 제시하세요.
+2. 추천 시군구의 데이터만 중심으로 사용하세요.
+3. 검색 결과에 없는 장소나 행사는 만들지 마세요.
+4. 문화재, 향토문화, 행사, 공연, 축제, 전통시장, 특화거리를 가능한 한 균형 있게 활용하세요.
+5. 같은 장소를 반복하지 마세요.
+6. 실제 여행 일정처럼 오전, 점심, 오후, 저녁 흐름으로 작성하세요.
+7. 연령대, 관심사, 분위기, 목적을 모두 반영하세요.
+8. 최소 3개 이상의 문화 자산을 사용하세요.
+9. 각 코스마다 왜 그 시간대에 적합한지 간단히 설명하세요.
 
 출력 형식
 
-[추천 지역]
+[추천 시군구]
 
 [추천 여행 코스]
 
