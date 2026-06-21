@@ -1,78 +1,96 @@
 import os
-import pandas as pd
-import google.generativeai as genai
+import re
+from collections import Counter
 
+import google.generativeai as genai
+import pandas as pd
 from dotenv import load_dotenv
 
-# 환경변수
+try:
+    from src.rag.paths import get_data_path
+    from src.rag.utils import clean_value, normalize_region
+except ModuleNotFoundError:
+    from paths import get_data_path
+    from utils import clean_value, normalize_region
+
+
+STOPWORDS = {
+    "문화",
+    "지역",
+    "행사",
+    "축제",
+    "공연",
+    "시장",
+    "전통",
+    "관광",
+    "체험",
+    "운영",
+    "개최",
+    "관련",
+    "제공",
+    "위한",
+    "통해",
+    "있는",
+    "없는",
+    "및",
+    "등",
+}
+
+
+def split_keywords(value):
+    value = clean_value(value)
+    if not value:
+        return []
+
+    tokens = re.split(r"[,/|·ㆍ;:\[\]\(\)\s]+", value)
+    return [token.strip() for token in tokens if len(token.strip()) >= 2]
+
+
+def extract_culture_keywords(df):
+    counter = Counter()
+
+    columns = [col for col in ["category", "name", "description", "items"] if col in df.columns]
+    for col in columns:
+        for value in df[col].dropna().astype(str):
+            for token in split_keywords(value):
+                if token in STOPWORDS:
+                    continue
+                if token.isdigit():
+                    continue
+                counter[token] += 1
+
+    return dict(counter.most_common(30))
+
+
 load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-genai.configure(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
+model = genai.GenerativeModel("gemini-2.5-flash")
 
-model = genai.GenerativeModel(
-    "gemini-2.5-flash"
-)
+df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
 
-# 데이터 로드
-df = pd.read_csv(
-    "data/processed/Data.csv",
-    encoding="utf-8-sig"
-)
-
-# ====================================
-# 데이터 분석
-# ====================================
-
-source_count = (
-    df["source"]
-    .value_counts()
-    .to_dict()
-)
+source_count = df["source"].fillna("기타").value_counts().to_dict()
 
 category_count = {}
-
 if "category" in df.columns:
-
     category_count = (
         df["category"]
         .fillna("기타")
+        .astype(str)
         .value_counts()
-        .head(10)
+        .head(15)
         .to_dict()
     )
 
-# 주소가 있는 데이터만 사용
-address_data = (
-    df["address"]
-    .fillna("")
-)
+region_counter = Counter()
+if "address" in df.columns:
+    for address in df["address"].fillna("").astype(str):
+        region = normalize_region(address)
+        if region:
+            region_counter[region] += 1
 
-region_count = {}
-
-for address in address_data:
-
-    if address == "":
-        continue
-
-    region = address.split()[0]
-
-    region_count[region] = (
-        region_count.get(region, 0) + 1
-    )
-
-region_count = dict(
-    sorted(
-        region_count.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )[:10]
-)
-
-# ====================================
-# Gemini Prompt
-# ====================================
+region_count = dict(region_counter.most_common(15))
+culture_keyword_count = extract_culture_keywords(df)
 
 prompt = f"""
 당신은 문화 데이터 분석 전문가입니다.
@@ -82,58 +100,39 @@ prompt = f"""
 [문화 유형 개수]
 {source_count}
 
-[상위 카테고리]
+[상위 분류]
 {category_count}
 
 [상위 지역]
 {region_count}
 
+[문화 키워드]
+{culture_keyword_count}
+
 분석 목표
 
-1. 단순 수치 나열이 아니라 데이터의 의미를 분석하세요.
-2. 제공된 통계만 활용하여 분석하세요.
-3. 없는 수치나 사실은 생성하지 마세요.
-4. 작성일, 작성자, 기관명 등 제공되지 않은 정보는 생성하지 마세요.
-5. 객관적인 데이터 분석 보고서 형식으로 작성하세요.
+1. 단순 수치 나열이 아니라 데이터가 보여주는 문화적 특징과 편중을 분석하세요.
+2. 주소는 정규화된 광역 지역 기준으로 집계되었습니다.
+3. 문화 키워드를 중심으로 현재 데이터가 어떤 문화 주제를 많이 담는지 설명하세요.
+4. 제공된 통계에 없는 수치나 사실은 만들지 마세요.
+5. 문화재, 향토문화, 행사, 공연, 축제, 전통시장, 특화거리를 함께 고려하세요.
 
 출력 형식
 
 ## 문화 데이터 분석 보고서
 
-### 1. 문화 데이터 특징
-
-- 문화 유형 분포 특징
-- 카테고리 분포 특징
-- 데이터 품질 관점 특징
+### 1. 문화 데이터의 특징
 
 ### 2. 주요 지역 특징
 
-- 지역별 문화 자산 분포
-- 문화 자원이 집중된 지역 특징
+### 3. 문화 키워드 분석
 
-### 3. 문화 트렌드 분석
+### 4. 문화 트렌드 해석
 
-- 현재 문화 데이터가 보여주는 문화 트렌드
-- 향후 발전 가능성
-
-### 4. 활용 방안
-
-- 관광 활용 방안
-- 지역 활성화 방안
-- 데이터 활용 전략
-
-규칙
-
-- 제공된 데이터 범위 안에서만 분석하세요.
-- 추측성 표현은 최소화하세요.
-- 문화재, 축제, 전통시장, 특화거리를 함께 고려하세요.
-- 보고서 형식으로 작성하세요.
+### 5. 활용 방안
 """
-
-response = model.generate_content(
-    prompt
-)
 
 print("\n===== 문화 트렌드 분석 =====\n")
 
+response = model.generate_content(prompt)
 print(response.text)

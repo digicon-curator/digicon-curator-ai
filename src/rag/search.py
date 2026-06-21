@@ -1,50 +1,27 @@
-import faiss
+import numpy as np
 import pandas as pd
-
 from sentence_transformers import SentenceTransformer
 
-df = pd.read_csv(
-    "data/processed/Data.csv",
-    encoding="utf-8-sig"
-)
+try:
+    from src.rag.paths import get_data_path, get_embedding_path
+    from src.rag.utils import apply_quality_filter, faiss_search_rows
+except ModuleNotFoundError:
+    from paths import get_data_path, get_embedding_path
+    from utils import apply_quality_filter, faiss_search_rows
 
-index = faiss.read_index(
-    "data/processed/data.index"
-)
 
-model = SentenceTransformer(
-    "intfloat/multilingual-e5-base"
-)
+df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
+embeddings = np.load(get_embedding_path())
+model = SentenceTransformer("intfloat/multilingual-e5-base")
 
 query = "역사적인 여행지"
-
-query_embedding = model.encode(
-    [query]
-)
-
-distances, indices = index.search(
-    query_embedding,
-    k=5
-)
+candidate_df = apply_quality_filter(df, min_description_len=20)
+results = faiss_search_rows(candidate_df, embeddings, model, query, k=5)
 
 print("\n검색 결과\n")
 
-for idx in indices[0]:
-
-    row = df.iloc[idx]
-
-    print("이름:", row["name"])
-
-    print(
-        "주소:",
-        row["address"]
-        if pd.notna(row["address"])
-        else "주소 정보 없음"
-    )
-
-    print(
-        "설명:",
-        str(row["description"])[:150]
-    )
-
+for row in results:
+    print("이름:", row.get("name", ""))
+    print("주소:", row.get("address", "주소 정보 없음"))
+    print("설명:", str(row.get("description", ""))[:150])
     print("-" * 50)

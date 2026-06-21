@@ -1,191 +1,76 @@
-# AI 지역 스토리 생성
-
 import os
-import faiss
-import pandas as pd
-import google.generativeai as genai
 
+import google.generativeai as genai
+import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
-# ==========================================
-# 환경변수
-# ==========================================
+try:
+    from src.rag.paths import get_data_path, get_embedding_path
+    from src.rag.utils import (
+        apply_quality_filter,
+        balanced_by_source,
+        build_context,
+        detect_region,
+        detect_region_from_data,
+        faiss_search_rows,
+        filter_by_region,
+    )
+except ModuleNotFoundError:
+    from paths import get_data_path, get_embedding_path
+    from utils import (
+        apply_quality_filter,
+        balanced_by_source,
+        build_context,
+        detect_region,
+        detect_region_from_data,
+        faiss_search_rows,
+        filter_by_region,
+    )
+
 
 load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-genai.configure(
-    api_key=os.getenv("GEMINI_API_KEY")
+model = genai.GenerativeModel("gemini-2.5-flash")
+embedding_model = SentenceTransformer("intfloat/multilingual-e5-base")
+
+df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
+embeddings = np.load(get_embedding_path())
+
+print("\n===== AI 지역 문화 스토리 생성 =====")
+
+query = input("\n스토리를 생성할 지역 또는 문화 자산을 입력하세요: ").strip()
+region = detect_region_from_data(query, df) or detect_region(query)
+
+candidate_df = df
+if region:
+    region_df = filter_by_region(df, region)
+    if not region_df.empty:
+        candidate_df = region_df
+
+candidate_df = apply_quality_filter(candidate_df, min_description_len=20)
+
+search_results = faiss_search_rows(
+    candidate_df,
+    embeddings,
+    embedding_model,
+    query,
+    k=60,
 )
+story_results = balanced_by_source(search_results, limit=15)
 
-model = genai.GenerativeModel(
-    "gemini-2.5-flash"
-)
+print("\n===== 스토리 검색 결과 =====\n")
+if region:
+    print(f"감지된 지역: {region}\n")
 
-# ==========================================
-# 데이터 로드
-# ==========================================
+for row in story_results:
+    print(f"[{row.get('source', '')}] {row.get('name', '')}")
 
-df = pd.read_csv(
-    "data/processed/Data.csv",
-    encoding="utf-8-sig"
-)
+print("\n=========================\n")
 
-# ==========================================
-# FAISS
-# ==========================================
-
-index = faiss.read_index(
-    "data/processed/data.index"
-)
-
-embedding_model = SentenceTransformer(
-    "intfloat/multilingual-e5-base"
-)
-
-# ==========================================
-# 사용자 입력
-# ==========================================
-
-print("\n===== AI 지역 스토리 생성 =====")
-
-query = input(
-    "\n스토리를 생성할 지역 또는 문화 자산을 입력하세요 : "
-)
-
-# ==========================================
-# 임베딩
-# ==========================================
-
-query_embedding = embedding_model.encode(
-    [query],
-    convert_to_numpy=True
-)
-
-# ==========================================
-# 검색
-# ==========================================
-
-distances, indices = index.search(
-    query_embedding,
-    k=20
-)
-
-# ==========================================
-# 중복 제거
-# ==========================================
-
-search_results = []
-
-seen_names = set()
-
-for idx in indices[0]:
-
-    row = df.iloc[idx]
-
-    name = str(
-        row.get("name", "")
-    )
-
-    if name in seen_names:
-        continue
-
-    seen_names.add(name)
-
-    search_results.append(row)
-
-# ==========================================
-# Source 균형화
-# ==========================================
-
-heritage = []
-festival = []
-market = []
-street = []
-
-for row in search_results:
-
-    source = row.get(
-        "source",
-        ""
-    )
-
-    if (
-        source == "문화재"
-        and len(heritage) < 3
-    ):
-        heritage.append(row)
-
-    elif (
-        source == "축제"
-        and len(festival) < 3
-    ):
-        festival.append(row)
-
-    elif (
-        source == "전통시장"
-        and len(market) < 2
-    ):
-        market.append(row)
-
-    elif (
-        source == "특화거리"
-        and len(street) < 2
-    ):
-        street.append(row)
-
-balanced_results = (
-    heritage
-    + festival
-    + market
-    + street
-)
-
-# ==========================================
-# 부족하면 추가
-# ==========================================
-
-if len(balanced_results) < 10:
-
-    existing_names = {
-        row.get("name", "")
-        for row in balanced_results
-    }
-
-    for row in search_results:
-
-        if row.get(
-            "name",
-            ""
-        ) in existing_names:
-            continue
-
-        balanced_results.append(row)
-
-        if len(balanced_results) >= 10:
-            break
-
-# ==========================================
-# Context 생성
-# ==========================================
-
-context = ""
-
-for row in balanced_results:
-
-    context += f"""
-이름: {row.get('name', '')}
-유형: {row.get('source', '')}
-분류: {row.get('category', '')}
-주소: {row.get('address', '')}
-설명: {row.get('description', '')}
-
-----------------------------------------
-"""
-
-# ==========================================
-# Prompt
-# ==========================================
+context = build_context(story_results)
 
 prompt = f"""
 당신은 지역 문화 전문 스토리텔러입니다.
@@ -193,47 +78,45 @@ prompt = f"""
 사용자 요청:
 {query}
 
+감지된 지역:
+{region or "없음"}
+
 검색된 문화 데이터:
 {context}
 
 목표
 
-검색된 문화 자산을 활용하여
-흥미로운 지역 문화 스토리를 작성하세요.
+검색된 문화 자산만 사용해 지역의 역사, 생활문화, 향토문화, 축제와 공연, 시장과 거리의 분위기가 자연스럽게 이어지는 문화 스토리를 작성하세요.
+
+강조할 관점
+
+1. 문화재는 지역의 역사와 기억을 보여주는 축으로 다루세요.
+2. 향토문화는 지역민의 생활 방식, 전승, 공동체성을 보여주는 요소로 다루세요.
+3. 행사, 공연, 축제는 현재 지역 문화가 살아 움직이는 장면으로 연결하세요.
+4. 전통시장과 특화거리는 관광객이 지역성을 직접 체감하는 공간으로 설명하세요.
+5. 감지된 지역이 있으면 해당 지역 데이터만 중심으로 서사를 구성하세요.
 
 규칙
 
-1. 단순 정보 나열 금지
-2. 이야기 형식으로 작성
-3. 역사적 의미 포함
-4. 지역의 문화적 가치 포함
-5. 현대적 의미도 함께 설명
-6. 검색 결과에 없는 사실은 생성하지 마세요
-7. 관광객이 방문하고 싶어지도록 작성하세요
-8. 자연스럽고 몰입감 있게 작성하세요
-9. 800~1200자 내외로 작성하세요
+1. 검색 결과에 없는 문화 자산, 지명, 역사적 사실은 만들지 마세요.
+2. 설명이 20자 이하인 빈약한 데이터는 이미 제외되었으므로, 제공된 데이터의 구체 설명을 적극 활용하세요.
+3. 단순 정보 나열을 피하고 방문자가 현장에서 이동하며 느끼는 흐름으로 작성하세요.
+4. 문화적 의미와 관광 포인트를 함께 설명하세요.
+5. 1000~1500자 내외로 작성하세요.
 
 출력 형식
 
 [문화 스토리]
 
-(스토리 작성)
-
-[문화적 의미]
+[지역성과 문화적 의미]
 
 [방문 포인트]
 """
 
-# ==========================================
-# Gemini
-# ==========================================
-
 print("\n답변 생성 중...\n")
 
-response = model.generate_content(
-    prompt
-)
+response = model.generate_content(prompt)
+print(response.text)
 
-print(
-    response.text
-)
+print("\n===== 스토리 Context =====\n")
+print(context)

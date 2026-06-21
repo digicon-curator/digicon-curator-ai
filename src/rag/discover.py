@@ -6,6 +6,11 @@ import google.generativeai as genai
 
 from dotenv import load_dotenv
 
+try:
+    from src.rag.paths import get_data_path
+except ModuleNotFoundError:
+    from paths import get_data_path
+
 # ==========================================
 # 환경변수 로드
 # ==========================================
@@ -25,7 +30,7 @@ model = genai.GenerativeModel(
 # ==========================================
 
 df = pd.read_csv(
-    "data/processed/Data.csv",
+    get_data_path(),
     encoding="utf-8-sig"
 )
 
@@ -81,12 +86,27 @@ street_df = region_df[
     region_df["source"] == "특화거리"
 ].head(MAX_PER_SOURCE)
 
+event_df = region_df[
+    region_df["source"] == "행사"
+].head(MAX_PER_SOURCE)
+
+localCulture_df = region_df[
+    region_df["source"] == "향토문화"
+].head(MAX_PER_SOURCE)
+
+performance_df = region_df[
+    region_df["source"] == "공연"
+].head(MAX_PER_SOURCE)
+
 balanced_df = pd.concat(
     [
         heritage_df,
         festival_df,
         market_df,
-        street_df
+        street_df,
+        event_df,
+        localCulture_df,
+        performance_df
     ],
     ignore_index=True
 )
@@ -107,9 +127,10 @@ for _, row in balanced_df.iterrows():
 유형: {row.get('source', '')}
 이름: {row.get('name', '')}
 분류: {row.get('category', '')}
-지역: {row.get('address', '')}
+주소: {row.get('address', '')}
 기간: {row.get('period', '')}
 설명: {row.get('description', '')}
+부가정보: {row.get('items', '')}
 
 ----------------------------------------
 """

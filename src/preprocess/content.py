@@ -1,146 +1,95 @@
+import html
 import re
+
 import pandas as pd
 
-# ==========================================
-# Data 로드
-# ==========================================
+try:
+    from src.rag.paths import get_data_path
+except ModuleNotFoundError:
+    import os
 
-df = pd.read_csv(
-    "data/processed/Data.csv",
-    encoding="utf-8-sig"
-)
+    def get_data_path():
+        curated_path = "data/processed/Data_curated.csv"
+        original_path = "data/processed/Data.csv"
+        return os.getenv(
+            "CURATOR_DATA_PATH",
+            curated_path if os.path.exists(curated_path) else original_path,
+        )
 
-# ==========================================
-# 텍스트 정제 함수
-# ==========================================
+MEANINGLESS_VALUES = {
+    "",
+    "-",
+    "--",
+    "nan",
+    "none",
+    "null",
+    "없음",
+    "해당없음",
+    "해당 없음",
+    "상세정보 없음",
+    "설명 없음",
+    "정보 없음",
+    "미상",
+}
+
 
 def clean_text(text):
-
     if pd.isna(text):
         return ""
 
     text = str(text)
+    text = re.sub(r"</?[a-zA-Z][^>]*>", " ", text)
+    text = html.unescape(text)
+    text = re.sub(r"</?[a-zA-Z][^>]*>", " ", text)
+    text = re.sub(r"&[a-zA-Z0-9#]+;", " ", text)
+    text = text.replace("<", " ").replace(">", " ")
+    text = text.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    text = re.sub(r"\s+", " ", text).strip()
 
-    # 줄바꿈 제거
-    text = text.replace("\n", " ")
-    text = text.replace("\r", " ")
+    if text.lower() in MEANINGLESS_VALUES:
+        return ""
 
-    # 특수문자 제거
-    text = re.sub(
-        r"[○●▶■◆※]",
-        " ",
-        text
-    )
+    return text
 
-    # 느낌표 정리
-    text = re.sub(
-        r"!+",
-        " ",
-        text
-    )
 
-    # 연속 공백 제거
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    )
+def build_region(address):
+    address = clean_text(address)
+    if not address:
+        return ""
 
-    return text.strip()
+    parts = address.split()
+    return " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
 
-# ==========================================
-# Content 생성
-# ==========================================
+
+def add_part(parts, label, value):
+    value = clean_text(value)
+    if value:
+        parts.append(f"{label}: {value}")
+
+
+data_path = get_data_path()
+df = pd.read_csv(data_path, encoding="utf-8-sig")
 
 contents = []
 
 for _, row in df.iterrows():
-
-    source = clean_text(
-        row.get("source", "")
-    )
-
-    name = clean_text(
-        row.get("name", "")
-    )
-
-    category = clean_text(
-        row.get("category", "")
-    )
-
-    address = clean_text(
-        row.get("address", "")
-    )
-
-    period = clean_text(
-        row.get("period", "")
-    )
-
-    description = clean_text(
-        row.get("description", "")
-    )
-
-    items = clean_text(
-        row.get("items", "")
-    )
-
     parts = []
 
-    if source:
-        parts.append(
-            f"유형: {source}"
-        )
+    add_part(parts, "이름", row.get("name", ""))
+    add_part(parts, "유형", row.get("source", ""))
+    add_part(parts, "분류", row.get("category", ""))
+    add_part(parts, "지역", build_region(row.get("address", "")))
+    add_part(parts, "기간", row.get("period", ""))
+    add_part(parts, "설명", row.get("description", ""))
+    add_part(parts, "부가 정보", row.get("items", ""))
 
-    if name:
-        parts.append(
-            f"이름: {name}"
-        )
-
-    if category:
-        parts.append(
-            f"분류: {category}"
-        )
-
-    if address:
-        parts.append(
-            f"주소: {address}"
-        )
-
-    if period:
-        parts.append(
-            f"기간: {period}"
-        )
-
-    if description:
-        parts.append(
-            f"설명: {description}"
-        )
-
-    if items:
-        parts.append(
-            f"부가정보: {items}"
-        )
-
-    content = "\n".join(parts)
-
-    contents.append(
-        content
-    )
-
-# ==========================================
-# 저장
-# ==========================================
+    contents.append("\n".join(parts))
 
 df["content"] = contents
 
-df.to_csv(
-    "data/processed/Data.csv",
-    index=False,
-    encoding="utf-8-sig"
-)
+df.to_csv(data_path, index=False, encoding="utf-8-sig")
 
 print("content 생성 완료")
 print(df.shape)
-
 print("\n===== Content 예시 =====\n")
 print(df["content"].iloc[0])
