@@ -1,12 +1,22 @@
 import html
 import re
+import sys
+from pathlib import Path
 
 import pandas as pd
+
+projectRoot = Path(__file__).resolve().parents[2]
+if str(projectRoot) not in sys.path:
+    sys.path.insert(0, str(projectRoot))
 
 try:
     from src.rag.paths import getDataPath
     from src.rag.utils import normalizeLocalRegion
 except ModuleNotFoundError:
+    ragPath = projectRoot / "src" / "rag"
+    if str(ragPath) not in sys.path:
+        sys.path.insert(0, str(ragPath))
+
     from paths import getDataPath
     from utils import normalizeLocalRegion
 
