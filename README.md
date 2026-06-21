@@ -113,14 +113,16 @@ data/processed/dataCurated.csv
 - description 20자 이하 제거
 - HTML 태그와 HTML 엔티티 제거
 - 의미 없는 값 제거
+- 축제, 행사, 공연은 2021년 이후 데이터 우선 유지
 - `source + name + address` 기준 중복 제거
 - source별 상한 적용
 - source 내부에서 지역 균형 샘플링
 
-기본 목표 개수는 22,000개입니다. 필요하면 환경 변수로 바꿀 수 있습니다.
+기본 목표 개수는 22,000개이고, 이벤트성 데이터의 최소 연도는 2021년입니다. 필요하면 환경 변수로 바꿀 수 있습니다.
 
 ```powershell
-$env:CURATOR_targetTotal="30000"
+$env:CURATOR_TARGET_TOTAL="30000"
+$env:CURATOR_MIN_EVENT_YEAR="2021"
 python src/preprocess/curate.py
 ```
 
@@ -222,7 +224,7 @@ $env:CURATOR_INDEX_PATH="data/processed/data.index"
 ## 주요 파일 설명
 
 - `src/preprocess/merge.py`: source별 전처리 데이터를 `Data.csv`로 병합합니다.
-- `src/preprocess/curate.py`: 대용량 원본 데이터를 품질과 균형 기준으로 축소합니다.
+- `src/preprocess/curate.py`: 대용량 원본 데이터를 품질, 최신성, 균형 기준으로 축소합니다.
 - `src/preprocess/content.py`: RAG 검색용 `content` 컬럼을 생성하고 노이즈 텍스트를 제거합니다.
 - `src/rag/paths.py`: 축소 데이터와 원본 데이터 경로를 자동 선택합니다.
 - `src/rag/utils.py`: 지역 감지, 시군구 정규화, 품질 필터, 지역 필터, FAISS 검색, source 균형화를 담당합니다.
@@ -259,6 +261,7 @@ python src/rag/buildIndex.py
 ## 주의사항
 
 - `dataCurated.csv`를 새로 만들면 임베딩과 FAISS 인덱스도 다시 생성하는 것을 권장합니다.
+- 축제, 행사, 공연은 시간성이 강하므로 기본적으로 2021년 이전 데이터가 추천용 데이터에서 제외됩니다.
 - 원본 데이터와 축소 데이터의 행 수가 다르면, `originalIndex` 컬럼을 통해 기존 원본 임베딩을 임시로 참조할 수 있습니다.
 - 최종 시연 전에는 `embeddingsCurated.npy`와 `dataCurated.index`를 새로 생성해 데이터와 인덱스를 맞추는 것이 가장 안정적입니다.
 - Gemini 기능을 실행하려면 `.env`의 `GEMINI_API_KEY`가 반드시 필요합니다.

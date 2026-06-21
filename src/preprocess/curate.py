@@ -9,6 +9,9 @@ inputPath = os.getenv("CURATOR_SOURCE_DATA_PATH", "data/processed/Data.csv")
 outputPath = os.getenv("CURATOR_CURATED_DATA_PATH", "data/processed/dataCurated.csv")
 targetTotal = int(os.getenv("CURATOR_TARGET_TOTAL", "22000"))
 minDescriptionLen = int(os.getenv("CURATOR_MIN_DESCRIPTION_LEN", "20"))
+minEventYear = int(os.getenv("CURATOR_MIN_EVENT_YEAR", "2021"))
+
+timeSensitiveSources = {"축제", "행사", "공연"}
 
 sourceLimits = {
     "문화재": 5000,
@@ -63,6 +66,45 @@ def normalizeRegion(address):
     return parts[0]
 
 
+def extractYears(*values):
+    years = []
+
+    for value in values:
+        text = cleanText(value)
+        if not text:
+            continue
+
+        years.extend(
+            int(year)
+            for year in re.findall(r"(?:19|20)\d{2}", text)
+        )
+
+    return years
+
+
+def getLatestYear(row):
+    years = extractYears(
+        row.get("name", ""),
+        row.get("period", ""),
+        row.get("description", ""),
+        row.get("items", ""),
+    )
+
+    return max(years) if years else None
+
+
+def isRecentEnough(row):
+    source = row.get("source", "")
+    if source not in timeSensitiveSources:
+        return True
+
+    latestYear = row.get("latestYear")
+    if pd.isna(latestYear):
+        return True
+
+    return int(latestYear) >= minEventYear
+
+
 def addQualityColumns(df):
     for column in ["name", "source", "category", "address", "period", "description", "items"]:
         if column not in df.columns:
@@ -71,6 +113,7 @@ def addQualityColumns(df):
 
     df["region"] = df["address"].apply(normalizeRegion)
     df["descriptionLen"] = df["description"].str.len()
+    df["latestYear"] = df.apply(getLatestYear, axis=1)
     df["qualityScore"] = (
         df["descriptionLen"]
         + df["category"].str.len().clip(upper=30)
@@ -130,6 +173,7 @@ df["originalIndex"] = df.index
 df = addQualityColumns(df)
 
 df = df[df["descriptionLen"] > minDescriptionLen]
+df = df[df.apply(isRecentEnough, axis=1)]
 df = df.drop_duplicates(subset=["source", "name", "address"], keep="first")
 df = df.drop_duplicates(subset=["name", "address"], keep="first")
 

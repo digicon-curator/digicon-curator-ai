@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 
 
+timeSensitiveSources = {"축제", "행사", "공연"}
+
 regionAliases = {
     "서울": "서울",
     "서울시": "서울",
@@ -168,12 +170,64 @@ def filterByLocalRegion(df, localRegion):
     ]
 
 
-def applyQualityFilter(df, minDescriptionLen=20):
+def extractYears(*values):
+    years = []
+
+    for value in values:
+        value = cleanValue(value)
+        if not value:
+            continue
+
+        years.extend(
+            int(year)
+            for year in re.findall(r"(?:19|20)\d{2}", value)
+        )
+
+    return years
+
+
+def getLatestYear(row):
+    years = extractYears(
+        row.get("name", ""),
+        row.get("period", ""),
+        row.get("description", ""),
+        row.get("items", ""),
+    )
+
+    return max(years) if years else None
+
+
+def isRecentEvent(row, minEventYear=2021):
+    source = cleanValue(row.get("source", ""))
+    if source not in timeSensitiveSources:
+        return True
+
+    latestYear = row.get("latestYear")
+    if latestYear is None or pd.isna(latestYear):
+        latestYear = getLatestYear(row)
+
+    if latestYear is None:
+        return True
+
+    return int(latestYear) >= minEventYear
+
+
+def applyQualityFilter(df, minDescriptionLen=20, minEventYear=2021):
     if "description" not in df.columns:
         return df
 
     descriptions = df["description"].fillna("").astype(str).str.strip()
-    return df[descriptions.str.len() > minDescriptionLen]
+    filteredDf = df[descriptions.str.len() > minDescriptionLen]
+
+    if "source" not in filteredDf.columns:
+        return filteredDf
+
+    return filteredDf[
+        filteredDf.apply(
+            lambda row: isRecentEvent(row, minEventYear=minEventYear),
+            axis=1,
+        )
+    ]
 
 
 def dedupeRows(rows):
