@@ -5,12 +5,12 @@ import re
 import pandas as pd
 
 
-INPUT_PATH = os.getenv("CURATOR_SOURCE_DATA_PATH", "data/processed/Data.csv")
-OUTPUT_PATH = os.getenv("CURATOR_CURATED_DATA_PATH", "data/processed/Data_curated.csv")
-TARGET_TOTAL = int(os.getenv("CURATOR_TARGET_TOTAL", "22000"))
-MIN_DESCRIPTION_LEN = int(os.getenv("CURATOR_MIN_DESCRIPTION_LEN", "20"))
+inputPath = os.getenv("CURATOR_SOURCE_DATA_PATH", "data/processed/Data.csv")
+outputPath = os.getenv("CURATOR_CURATED_DATA_PATH", "data/processed/dataCurated.csv")
+targetTotal = int(os.getenv("CURATOR_TARGET_TOTAL", "22000"))
+minDescriptionLen = int(os.getenv("CURATOR_MIN_DESCRIPTION_LEN", "20"))
 
-SOURCE_LIMITS = {
+sourceLimits = {
     "문화재": 5000,
     "향토문화": 5000,
     "행사": 5000,
@@ -20,7 +20,7 @@ SOURCE_LIMITS = {
     "특화거리": 500,
 }
 
-BAD_TEXTS = {
+badTexts = {
     "",
     "-",
     "--",
@@ -37,7 +37,7 @@ BAD_TEXTS = {
 }
 
 
-def clean_text(value):
+def cleanText(value):
     if pd.isna(value):
         return ""
 
@@ -49,11 +49,11 @@ def clean_text(value):
     value = value.replace("<", " ").replace(">", " ")
     value = re.sub(r"\s+", " ", value).strip()
 
-    return "" if value.lower() in BAD_TEXTS else value
+    return "" if value.lower() in badTexts else value
 
 
-def normalize_region(address):
-    address = clean_text(address)
+def normalizeRegion(address):
+    address = cleanText(address)
     if not address:
         return "지역 미상"
 
@@ -63,16 +63,16 @@ def normalize_region(address):
     return parts[0]
 
 
-def add_quality_columns(df):
+def addQualityColumns(df):
     for column in ["name", "source", "category", "address", "period", "description", "items"]:
         if column not in df.columns:
             df[column] = ""
-        df[column] = df[column].apply(clean_text)
+        df[column] = df[column].apply(cleanText)
 
-    df["region"] = df["address"].apply(normalize_region)
-    df["description_len"] = df["description"].str.len()
-    df["quality_score"] = (
-        df["description_len"]
+    df["region"] = df["address"].apply(normalizeRegion)
+    df["descriptionLen"] = df["description"].str.len()
+    df["qualityScore"] = (
+        df["descriptionLen"]
         + df["category"].str.len().clip(upper=30)
         + df["items"].str.len().clip(upper=50)
         + df["period"].str.len().clip(upper=20)
@@ -81,31 +81,31 @@ def add_quality_columns(df):
     return df
 
 
-def balanced_sample(source_df, limit):
-    if len(source_df) <= limit:
-        return source_df
+def balancedSample(sourceDf, limit):
+    if len(sourceDf) <= limit:
+        return sourceDf
 
-    per_region = max(1, limit // max(1, source_df["region"].nunique()))
+    perRegion = max(1, limit // max(1, sourceDf["region"].nunique()))
 
     sampled = (
-        source_df.sort_values("quality_score", ascending=False)
+        sourceDf.sort_values("qualityScore", ascending=False)
         .groupby("region", group_keys=False)
-        .head(per_region)
+        .head(perRegion)
     )
 
     if len(sampled) < limit:
-        remain = source_df.drop(sampled.index, errors="ignore")
+        remain = sourceDf.drop(sampled.index, errors="ignore")
         sampled = pd.concat(
             [
                 sampled,
-                remain.sort_values("quality_score", ascending=False).head(limit - len(sampled)),
+                remain.sort_values("qualityScore", ascending=False).head(limit - len(sampled)),
             ]
         )
 
     return sampled.head(limit)
 
 
-def build_content(row):
+def buildContent(row):
     parts = []
     fields = [
         ("이름", row.get("name", "")),
@@ -118,44 +118,44 @@ def build_content(row):
     ]
 
     for label, value in fields:
-        value = clean_text(value)
+        value = cleanText(value)
         if value:
             parts.append(f"{label}: {value}")
 
     return "\n".join(parts)
 
 
-df = pd.read_csv(INPUT_PATH, encoding="utf-8-sig")
-df["original_index"] = df.index
-df = add_quality_columns(df)
+df = pd.read_csv(inputPath, encoding="utf-8-sig")
+df["originalIndex"] = df.index
+df = addQualityColumns(df)
 
-df = df[df["description_len"] > MIN_DESCRIPTION_LEN]
+df = df[df["descriptionLen"] > minDescriptionLen]
 df = df.drop_duplicates(subset=["source", "name", "address"], keep="first")
 df = df.drop_duplicates(subset=["name", "address"], keep="first")
 
 samples = []
-for source, limit in SOURCE_LIMITS.items():
-    source_df = df[df["source"] == source]
-    samples.append(balanced_sample(source_df, limit))
+for source, limit in sourceLimits.items():
+    sourceDf = df[df["source"] == source]
+    samples.append(balancedSample(sourceDf, limit))
 
 curated = pd.concat(samples, ignore_index=True)
 
-if len(curated) < TARGET_TOTAL:
-    selected_original_indexes = set(curated["original_index"])
-    remain = df[~df["original_index"].isin(selected_original_indexes)]
+if len(curated) < targetTotal:
+    selectedOriginalIndexes = set(curated["originalIndex"])
+    remain = df[~df["originalIndex"].isin(selectedOriginalIndexes)]
     curated = pd.concat(
         [
             curated,
-            remain.sort_values("quality_score", ascending=False).head(TARGET_TOTAL - len(curated)),
+            remain.sort_values("qualityScore", ascending=False).head(targetTotal - len(curated)),
         ],
         ignore_index=True,
     )
 
-curated = curated.sort_values(["source", "region", "quality_score"], ascending=[True, True, False])
-curated = curated.head(TARGET_TOTAL).reset_index(drop=True)
-curated["content"] = curated.apply(build_content, axis=1)
+curated = curated.sort_values(["source", "region", "qualityScore"], ascending=[True, True, False])
+curated = curated.head(targetTotal).reset_index(drop=True)
+curated["content"] = curated.apply(buildContent, axis=1)
 
-curated.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
+curated.to_csv(outputPath, index=False, encoding="utf-8-sig")
 
 print("curated 데이터 생성 완료")
 print("입력 데이터 수:", len(df))

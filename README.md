@@ -27,11 +27,11 @@ Curator
 |-- data
 |   `-- processed
 |       |-- Data.csv
-|       |-- Data_curated.csv
+|       |-- dataCurated.csv
 |       |-- embeddings.npy
-|       |-- embeddings_curated.npy
+|       |-- embeddingsCurated.npy
 |       |-- data.index
-|       `-- data_curated.index
+|       `-- dataCurated.index
 |-- src
 |   |-- preprocess
 |   |   |-- festival.py
@@ -105,7 +105,7 @@ python src/preprocess/curate.py
 생성 파일:
 
 ```text
-data/processed/Data_curated.csv
+data/processed/dataCurated.csv
 ```
 
 기본 기준:
@@ -120,7 +120,7 @@ data/processed/Data_curated.csv
 기본 목표 개수는 22,000개입니다. 필요하면 환경 변수로 바꿀 수 있습니다.
 
 ```powershell
-$env:CURATOR_TARGET_TOTAL="30000"
+$env:CURATOR_targetTotal="30000"
 python src/preprocess/curate.py
 ```
 
@@ -132,7 +132,7 @@ python src/preprocess/curate.py
 python src/preprocess/content.py
 ```
 
-`Data_curated.csv`가 있으면 자동으로 축소 데이터를 우선 사용합니다. 없으면 `Data.csv`를 사용합니다.
+`dataCurated.csv`가 있으면 자동으로 축소 데이터를 우선 사용합니다. 없으면 `Data.csv`를 사용합니다.
 
 ### 4. 임베딩 생성
 
@@ -143,10 +143,10 @@ python src/rag/embed.py
 생성 파일:
 
 ```text
-data/processed/embeddings_curated.npy
+data/processed/embeddingsCurated.npy
 ```
 
-`Data_curated.csv`가 없으면 기존 원본 데이터 기준으로 `embeddings.npy`를 생성합니다.
+`dataCurated.csv`가 없으면 기존 원본 데이터 기준으로 `embeddings.npy`를 생성합니다.
 
 ### 5. FAISS 인덱스 생성
 
@@ -157,7 +157,7 @@ python src/rag/buildIndex.py
 생성 파일:
 
 ```text
-data/processed/data_curated.index
+data/processed/dataCurated.index
 ```
 
 ## RAG 기능 실행
@@ -204,9 +204,9 @@ python src/rag/search.py
 
 우선순위:
 
-1. `Data_curated.csv`가 있으면 축소 데이터를 사용합니다.
+1. `dataCurated.csv`가 있으면 축소 데이터를 사용합니다.
 2. 없으면 `Data.csv`를 사용합니다.
-3. `embeddings_curated.npy`가 있으면 축소 임베딩을 사용합니다.
+3. `embeddingsCurated.npy`가 있으면 축소 임베딩을 사용합니다.
 4. 없으면 `embeddings.npy`를 사용합니다.
 
 환경 변수로 직접 경로를 지정할 수도 있습니다.
@@ -256,7 +256,7 @@ python src/rag/buildIndex.py
 
 ## 주의사항
 
-- `Data_curated.csv`를 새로 만들면 임베딩과 FAISS 인덱스도 다시 생성하는 것을 권장합니다.
-- 원본 데이터와 축소 데이터의 행 수가 다르면, `original_index` 컬럼을 통해 기존 원본 임베딩을 임시로 참조할 수 있습니다.
-- 최종 시연 전에는 `embeddings_curated.npy`와 `data_curated.index`를 새로 생성해 데이터와 인덱스를 맞추는 것이 가장 안정적입니다.
+- `dataCurated.csv`를 새로 만들면 임베딩과 FAISS 인덱스도 다시 생성하는 것을 권장합니다.
+- 원본 데이터와 축소 데이터의 행 수가 다르면, `originalIndex` 컬럼을 통해 기존 원본 임베딩을 임시로 참조할 수 있습니다.
+- 최종 시연 전에는 `embeddingsCurated.npy`와 `dataCurated.index`를 새로 생성해 데이터와 인덱스를 맞추는 것이 가장 안정적입니다.
 - Gemini 기능을 실행하려면 `.env`의 `GEMINI_API_KEY`가 반드시 필요합니다.

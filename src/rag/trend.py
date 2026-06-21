@@ -7,14 +7,14 @@ import pandas as pd
 from dotenv import load_dotenv
 
 try:
-    from src.rag.paths import get_data_path
-    from src.rag.utils import clean_value, normalize_region
+    from src.rag.paths import getDataPath
+    from src.rag.utils import cleanValue, normalizeRegion
 except ModuleNotFoundError:
-    from paths import get_data_path
-    from utils import clean_value, normalize_region
+    from paths import getDataPath
+    from utils import cleanValue, normalizeRegion
 
 
-STOPWORDS = {
+stopwords = {
     "문화",
     "지역",
     "행사",
@@ -37,8 +37,8 @@ STOPWORDS = {
 }
 
 
-def split_keywords(value):
-    value = clean_value(value)
+def splitKeywords(value):
+    value = cleanValue(value)
     if not value:
         return []
 
@@ -46,14 +46,14 @@ def split_keywords(value):
     return [token.strip() for token in tokens if len(token.strip()) >= 2]
 
 
-def extract_culture_keywords(df):
+def extractCultureKeywords(df):
     counter = Counter()
 
     columns = [col for col in ["category", "name", "description", "items"] if col in df.columns]
     for col in columns:
         for value in df[col].dropna().astype(str):
-            for token in split_keywords(value):
-                if token in STOPWORDS:
+            for token in splitKeywords(value):
+                if token in stopwords:
                     continue
                 if token.isdigit():
                     continue
@@ -67,13 +67,13 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
+df = pd.read_csv(getDataPath(), encoding="utf-8-sig")
 
-source_count = df["source"].fillna("기타").value_counts().to_dict()
+sourceCount = df["source"].fillna("기타").value_counts().to_dict()
 
-category_count = {}
+categoryCount = {}
 if "category" in df.columns:
-    category_count = (
+    categoryCount = (
         df["category"]
         .fillna("기타")
         .astype(str)
@@ -82,15 +82,15 @@ if "category" in df.columns:
         .to_dict()
     )
 
-region_counter = Counter()
+regionCounter = Counter()
 if "address" in df.columns:
     for address in df["address"].fillna("").astype(str):
-        region = normalize_region(address)
+        region = normalizeRegion(address)
         if region:
-            region_counter[region] += 1
+            regionCounter[region] += 1
 
-region_count = dict(region_counter.most_common(15))
-culture_keyword_count = extract_culture_keywords(df)
+regionCount = dict(regionCounter.most_common(15))
+cultureKeywordCount = extractCultureKeywords(df)
 
 prompt = f"""
 당신은 문화 데이터 분석 전문가입니다.
@@ -98,16 +98,16 @@ prompt = f"""
 다음은 실제 문화 데이터 통계입니다.
 
 [문화 유형 개수]
-{source_count}
+{sourceCount}
 
 [상위 분류]
-{category_count}
+{categoryCount}
 
 [상위 지역]
-{region_count}
+{regionCount}
 
 [문화 키워드]
-{culture_keyword_count}
+{cultureKeywordCount}
 
 분석 목표
 

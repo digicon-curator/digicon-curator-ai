@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-REGION_ALIASES = {
+regionAliases = {
     "서울": "서울",
     "서울시": "서울",
     "서울특별시": "서울",
@@ -53,42 +53,42 @@ REGION_ALIASES = {
     "제주특별자치도": "제주",
 }
 
-SOURCE_ORDER = ["문화재", "향토문화", "축제", "행사", "공연", "전통시장", "특화거리"]
-BAD_TEXTS = {"", "-", "--", "nan", "none", "null", "없음", "해당없음", "해당 없음", "설명 없음", "정보 없음"}
+sourceOrder = ["문화재", "향토문화", "축제", "행사", "공연", "전통시장", "특화거리"]
+badTexts = {"", "-", "--", "nan", "none", "null", "없음", "해당없음", "해당 없음", "설명 없음", "정보 없음"}
 
 
-def clean_value(value):
+def cleanValue(value):
     if pd.isna(value):
         return ""
     value = str(value).strip()
     value = re.sub(r"\s+", " ", value)
-    return "" if value.lower() in BAD_TEXTS else value
+    return "" if value.lower() in badTexts else value
 
 
-def normalize_region(value):
-    value = clean_value(value)
+def normalizeRegion(value):
+    value = cleanValue(value)
     if not value:
         return ""
 
     token = value.split()[0]
-    return REGION_ALIASES.get(token, REGION_ALIASES.get(value, token))
+    return regionAliases.get(token, regionAliases.get(value, token))
 
 
-def detect_region(text):
-    text = clean_value(text)
+def detectRegion(text):
+    text = cleanValue(text)
     if not text:
         return ""
 
-    aliases = sorted(REGION_ALIASES.keys(), key=len, reverse=True)
+    aliases = sorted(regionAliases.keys(), key=len, reverse=True)
     for alias in aliases:
         if alias in text:
-            return REGION_ALIASES[alias]
+            return regionAliases[alias]
 
     return ""
 
 
-def detect_region_from_data(text, df):
-    text = clean_value(text)
+def detectRegionFromData(text, df):
+    text = cleanValue(text)
     if not text or "address" not in df.columns:
         return ""
 
@@ -100,20 +100,20 @@ def detect_region_from_data(text, df):
     for candidate in sorted(candidates, key=len, reverse=True):
         if len(candidate) < 2:
             continue
-        short_name = re.sub(r"(특별시|광역시|특별자치시|특별자치도|시|군|구|도)$", "", candidate)
-        if candidate in text or (len(short_name) >= 2 and short_name in text):
+        shortName = re.sub(r"(특별시|광역시|특별자치시|특별자치도|시|군|구|도)$", "", candidate)
+        if candidate in text or (len(shortName) >= 2 and shortName in text):
             return candidate
 
     return ""
 
 
-def filter_by_region(df, region):
+def filterByRegion(df, region):
     if not region or "address" not in df.columns:
         return df
 
     pattern = "|".join(
         re.escape(alias)
-        for alias, normalized in REGION_ALIASES.items()
+        for alias, normalized in regionAliases.items()
         if normalized == region
     )
     if not pattern:
@@ -122,20 +122,20 @@ def filter_by_region(df, region):
     return df[df["address"].fillna("").astype(str).str.contains(pattern, regex=True, na=False)]
 
 
-def apply_quality_filter(df, min_description_len=20):
+def applyQualityFilter(df, minDescriptionLen=20):
     if "description" not in df.columns:
         return df
 
     descriptions = df["description"].fillna("").astype(str).str.strip()
-    return df[descriptions.str.len() > min_description_len]
+    return df[descriptions.str.len() > minDescriptionLen]
 
 
-def dedupe_rows(rows):
+def dedupeRows(rows):
     results = []
     seen = set()
 
     for _, row in rows.iterrows():
-        name = clean_value(row.get("name", ""))
+        name = cleanValue(row.get("name", ""))
         if not name or name in seen:
             continue
         seen.add(name)
@@ -144,54 +144,52 @@ def dedupe_rows(rows):
     return results
 
 
-def faiss_search_rows(df, embeddings, embedding_model, query, k=40):
+def faissSearchRows(df, embeddings, embeddingModel, query, k=40):
     if df.empty:
         return []
 
-    if len(embeddings) == len(df):
-        embedding_indices = df.index.to_numpy()
-    elif "original_index" in df.columns:
-        embedding_indices = df["original_index"].astype(int).to_numpy()
+    if "originalIndex" in df.columns and df["originalIndex"].astype(int).max() < len(embeddings):
+        embeddingIndices = df["originalIndex"].astype(int).to_numpy()
     else:
-        embedding_indices = df.index.to_numpy()
+        embeddingIndices = df.index.to_numpy()
 
-    valid_mask = embedding_indices < len(embeddings)
-    if not valid_mask.any():
+    validMask = (embeddingIndices >= 0) & (embeddingIndices < len(embeddings))
+    if not validMask.any():
         return []
 
-    source_df = df.loc[valid_mask]
-    embedding_indices = embedding_indices[valid_mask]
-    subset_embeddings = embeddings[embedding_indices].astype("float32")
-    query_embedding = embedding_model.encode([query], convert_to_numpy=True).astype("float32")
+    sourceDf = df.loc[validMask]
+    embeddingIndices = embeddingIndices[validMask]
+    subsetEmbeddings = embeddings[embeddingIndices].astype("float32")
+    queryEmbedding = embeddingModel.encode([query], convert_to_numpy=True).astype("float32")
 
-    index = faiss.IndexFlatL2(subset_embeddings.shape[1])
-    index.add(subset_embeddings)
+    index = faiss.IndexFlatL2(subsetEmbeddings.shape[1])
+    index.add(subsetEmbeddings)
 
-    _, indices = index.search(query_embedding, min(k, len(row_indices)))
-    matched_indices = source_df.index.to_numpy()[indices[0]]
+    _, indices = index.search(queryEmbedding, min(k, len(sourceDf)))
+    matchedIndices = sourceDf.index.to_numpy()[indices[0]]
 
-    return dedupe_rows(source_df.loc[matched_indices])
+    return dedupeRows(sourceDf.loc[matchedIndices])
 
 
-def balanced_by_source(rows, limit=15):
-    buckets = {source: [] for source in SOURCE_ORDER}
-    extra_buckets = {}
+def balancedBySource(rows, limit=15):
+    buckets = {source: [] for source in sourceOrder}
+    extraBuckets = {}
 
     for row in rows:
-        source = clean_value(row.get("source", ""))
+        source = cleanValue(row.get("source", ""))
         if source in buckets:
             buckets[source].append(row)
         else:
-            extra_buckets.setdefault(source, []).append(row)
+            extraBuckets.setdefault(source, []).append(row)
 
-    ordered_sources = SOURCE_ORDER + [source for source in extra_buckets if source]
+    orderedSources = sourceOrder + [source for source in extraBuckets if source]
     results = []
 
     while len(results) < limit:
         added = False
 
-        for source in ordered_sources:
-            bucket = buckets.get(source, extra_buckets.get(source, []))
+        for source in orderedSources:
+            bucket = buckets.get(source, extraBuckets.get(source, []))
             if bucket:
                 results.append(bucket.pop(0))
                 added = True
@@ -205,7 +203,7 @@ def balanced_by_source(rows, limit=15):
     return results
 
 
-def build_context(rows):
+def buildContext(rows):
     blocks = []
 
     for row in rows:

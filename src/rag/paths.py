@@ -1,34 +1,34 @@
 import os
 
 
-ORIGINAL_DATA_PATH = "data/processed/Data.csv"
-CURATED_DATA_PATH = "data/processed/Data_curated.csv"
+originalDataPath = "data/processed/Data.csv"
+curatedDataPath = "data/processed/dataCurated.csv"
 
-ORIGINAL_EMBEDDING_PATH = "data/processed/embeddings.npy"
-CURATED_EMBEDDING_PATH = "data/processed/embeddings_curated.npy"
+originalEmbeddingPath = "data/processed/embeddings.npy"
+curatedEmbeddingPath = "data/processed/embeddingsCurated.npy"
 
-ORIGINAL_INDEX_PATH = "data/processed/data.index"
-CURATED_INDEX_PATH = "data/processed/data_curated.index"
+originalIndexPath = "data/processed/data.index"
+curatedIndexPath = "data/processed/dataCurated.index"
 
 
-def get_data_path():
+def getDataPath():
     return os.getenv(
         "CURATOR_DATA_PATH",
-        CURATED_DATA_PATH if os.path.exists(CURATED_DATA_PATH) else ORIGINAL_DATA_PATH,
+        curatedDataPath if os.path.exists(curatedDataPath) else originalDataPath,
     )
 
 
-def get_embedding_path():
+def getEmbeddingPath():
     return os.getenv(
         "CURATOR_EMBEDDING_PATH",
-        CURATED_EMBEDDING_PATH
-        if os.path.exists(CURATED_EMBEDDING_PATH)
-        else ORIGINAL_EMBEDDING_PATH,
+        curatedEmbeddingPath
+        if os.path.exists(curatedEmbeddingPath)
+        else originalEmbeddingPath,
     )
 
 
-def get_index_path():
+def getIndexPath():
     return os.getenv(
         "CURATOR_INDEX_PATH",
-        CURATED_INDEX_PATH if os.path.exists(CURATED_INDEX_PATH) else ORIGINAL_INDEX_PATH,
+        curatedIndexPath if os.path.exists(curatedIndexPath) else originalIndexPath,
     )

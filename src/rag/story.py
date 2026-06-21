@@ -7,26 +7,26 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
 try:
-    from src.rag.paths import get_data_path, get_embedding_path
+    from src.rag.paths import getDataPath, getEmbeddingPath
     from src.rag.utils import (
-        apply_quality_filter,
-        balanced_by_source,
-        build_context,
-        detect_region,
-        detect_region_from_data,
-        faiss_search_rows,
-        filter_by_region,
+        applyQualityFilter,
+        balancedBySource,
+        buildContext,
+        detectRegion,
+        detectRegionFromData,
+        faissSearchRows,
+        filterByRegion,
     )
 except ModuleNotFoundError:
-    from paths import get_data_path, get_embedding_path
+    from paths import getDataPath, getEmbeddingPath
     from utils import (
-        apply_quality_filter,
-        balanced_by_source,
-        build_context,
-        detect_region,
-        detect_region_from_data,
-        faiss_search_rows,
-        filter_by_region,
+        applyQualityFilter,
+        balancedBySource,
+        buildContext,
+        detectRegion,
+        detectRegionFromData,
+        faissSearchRows,
+        filterByRegion,
     )
 
 
@@ -34,43 +34,43 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 model = genai.GenerativeModel("gemini-2.5-flash")
-embedding_model = SentenceTransformer("intfloat/multilingual-e5-base")
+embeddingModel = SentenceTransformer("intfloat/multilingual-e5-base")
 
-df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
-embeddings = np.load(get_embedding_path())
+df = pd.read_csv(getDataPath(), encoding="utf-8-sig")
+embeddings = np.load(getEmbeddingPath())
 
 print("\n===== AI 지역 문화 스토리 생성 =====")
 
 query = input("\n스토리를 생성할 지역 또는 문화 자산을 입력하세요: ").strip()
-region = detect_region_from_data(query, df) or detect_region(query)
+region = detectRegionFromData(query, df) or detectRegion(query)
 
-candidate_df = df
+candidateDf = df
 if region:
-    region_df = filter_by_region(df, region)
-    if not region_df.empty:
-        candidate_df = region_df
+    regionDf = filterByRegion(df, region)
+    if not regionDf.empty:
+        candidateDf = regionDf
 
-candidate_df = apply_quality_filter(candidate_df, min_description_len=20)
+candidateDf = applyQualityFilter(candidateDf, minDescriptionLen=20)
 
-search_results = faiss_search_rows(
-    candidate_df,
+searchResults = faissSearchRows(
+    candidateDf,
     embeddings,
-    embedding_model,
+    embeddingModel,
     query,
     k=60,
 )
-story_results = balanced_by_source(search_results, limit=15)
+storyResults = balancedBySource(searchResults, limit=15)
 
 print("\n===== 스토리 검색 결과 =====\n")
 if region:
     print(f"감지된 지역: {region}\n")
 
-for row in story_results:
+for row in storyResults:
     print(f"[{row.get('source', '')}] {row.get('name', '')}")
 
 print("\n=========================\n")
 
-context = build_context(story_results)
+context = buildContext(storyResults)
 
 prompt = f"""
 당신은 지역 문화 전문 스토리텔러입니다.

@@ -3,20 +3,20 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 
 try:
-    from src.rag.paths import get_data_path, get_embedding_path
-    from src.rag.utils import apply_quality_filter, faiss_search_rows
+    from src.rag.paths import getDataPath, getEmbeddingPath
+    from src.rag.utils import applyQualityFilter, faissSearchRows
 except ModuleNotFoundError:
-    from paths import get_data_path, get_embedding_path
-    from utils import apply_quality_filter, faiss_search_rows
+    from paths import getDataPath, getEmbeddingPath
+    from utils import applyQualityFilter, faissSearchRows
 
 
-df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
-embeddings = np.load(get_embedding_path())
+df = pd.read_csv(getDataPath(), encoding="utf-8-sig")
+embeddings = np.load(getEmbeddingPath())
 model = SentenceTransformer("intfloat/multilingual-e5-base")
 
 query = "역사적인 여행지"
-candidate_df = apply_quality_filter(df, min_description_len=20)
-results = faiss_search_rows(candidate_df, embeddings, model, query, k=5)
+candidateDf = applyQualityFilter(df, minDescriptionLen=20)
+results = faissSearchRows(candidateDf, embeddings, model, query, k=5)
 
 print("\n검색 결과\n")
 

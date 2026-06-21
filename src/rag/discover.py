@@ -7,9 +7,9 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 
 try:
-    from src.rag.paths import get_data_path
+    from src.rag.paths import getDataPath
 except ModuleNotFoundError:
-    from paths import get_data_path
+    from paths import getDataPath
 
 # ==========================================
 # 환경변수 로드
@@ -30,7 +30,7 @@ model = genai.GenerativeModel(
 # ==========================================
 
 df = pd.read_csv(
-    get_data_path(),
+    getDataPath(),
     encoding="utf-8-sig"
 )
 
@@ -46,13 +46,13 @@ region = input(
 # 지역 데이터 조회
 # ==========================================
 
-region_df = df[
+regionDf = df[
     df["address"]
     .fillna("")
     .str.contains(region, na=False)
 ]
 
-if len(region_df) == 0:
+if len(regionDf) == 0:
 
     print(
         "\n해당 지역의 데이터가 없습니다."
@@ -61,58 +61,58 @@ if len(region_df) == 0:
     exit()
 
 print(
-    f"\n검색된 데이터 수 : {len(region_df)}"
+    f"\n검색된 데이터 수 : {len(regionDf)}"
 )
 
 # ==========================================
 # Source 균형 추출
 # ==========================================
 
-MAX_PER_SOURCE = 10
+maxPerSource = 10
 
-heritage_df = region_df[
-    region_df["source"] == "문화재"
-].head(MAX_PER_SOURCE)
+heritageDf = regionDf[
+    regionDf["source"] == "문화재"
+].head(maxPerSource)
 
-festival_df = region_df[
-    region_df["source"] == "축제"
-].head(MAX_PER_SOURCE)
+festivalDf = regionDf[
+    regionDf["source"] == "축제"
+].head(maxPerSource)
 
-market_df = region_df[
-    region_df["source"] == "전통시장"
-].head(MAX_PER_SOURCE)
+marketDf = regionDf[
+    regionDf["source"] == "전통시장"
+].head(maxPerSource)
 
-street_df = region_df[
-    region_df["source"] == "특화거리"
-].head(MAX_PER_SOURCE)
+streetDf = regionDf[
+    regionDf["source"] == "특화거리"
+].head(maxPerSource)
 
-event_df = region_df[
-    region_df["source"] == "행사"
-].head(MAX_PER_SOURCE)
+eventDf = regionDf[
+    regionDf["source"] == "행사"
+].head(maxPerSource)
 
-localCulture_df = region_df[
-    region_df["source"] == "향토문화"
-].head(MAX_PER_SOURCE)
+localCultureDf = regionDf[
+    regionDf["source"] == "향토문화"
+].head(maxPerSource)
 
-performance_df = region_df[
-    region_df["source"] == "공연"
-].head(MAX_PER_SOURCE)
+performanceDf = regionDf[
+    regionDf["source"] == "공연"
+].head(maxPerSource)
 
-balanced_df = pd.concat(
+balancedDf = pd.concat(
     [
-        heritage_df,
-        festival_df,
-        market_df,
-        street_df,
-        event_df,
-        localCulture_df,
-        performance_df
+        heritageDf,
+        festivalDf,
+        marketDf,
+        streetDf,
+        eventDf,
+        localCultureDf,
+        performanceDf
     ],
     ignore_index=True
 )
 
 print(
-    f"분석 대상 데이터 수 : {len(balanced_df)}"
+    f"분석 대상 데이터 수 : {len(balancedDf)}"
 )
 
 # ==========================================
@@ -121,7 +121,7 @@ print(
 
 context = ""
 
-for _, row in balanced_df.iterrows():
+for _, row in balancedDf.iterrows():
 
     context += f"""
 유형: {row.get('source', '')}

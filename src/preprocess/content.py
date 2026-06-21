@@ -4,19 +4,19 @@ import re
 import pandas as pd
 
 try:
-    from src.rag.paths import get_data_path
+    from src.rag.paths import getDataPath
 except ModuleNotFoundError:
     import os
 
-    def get_data_path():
-        curated_path = "data/processed/Data_curated.csv"
-        original_path = "data/processed/Data.csv"
+    def getDataPath():
+        curatedPath = "data/processed/dataCurated.csv"
+        originalPath = "data/processed/Data.csv"
         return os.getenv(
             "CURATOR_DATA_PATH",
-            curated_path if os.path.exists(curated_path) else original_path,
+            curatedPath if os.path.exists(curatedPath) else originalPath,
         )
 
-MEANINGLESS_VALUES = {
+meaninglessValues = {
     "",
     "-",
     "--",
@@ -33,7 +33,7 @@ MEANINGLESS_VALUES = {
 }
 
 
-def clean_text(text):
+def cleanText(text):
     if pd.isna(text):
         return ""
 
@@ -46,14 +46,14 @@ def clean_text(text):
     text = text.replace("\n", " ").replace("\r", " ").replace("\t", " ")
     text = re.sub(r"\s+", " ", text).strip()
 
-    if text.lower() in MEANINGLESS_VALUES:
+    if text.lower() in meaninglessValues:
         return ""
 
     return text
 
 
-def build_region(address):
-    address = clean_text(address)
+def buildRegion(address):
+    address = cleanText(address)
     if not address:
         return ""
 
@@ -61,33 +61,33 @@ def build_region(address):
     return " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
 
 
-def add_part(parts, label, value):
-    value = clean_text(value)
+def addPart(parts, label, value):
+    value = cleanText(value)
     if value:
         parts.append(f"{label}: {value}")
 
 
-data_path = get_data_path()
-df = pd.read_csv(data_path, encoding="utf-8-sig")
+dataPath = getDataPath()
+df = pd.read_csv(dataPath, encoding="utf-8-sig")
 
 contents = []
 
 for _, row in df.iterrows():
     parts = []
 
-    add_part(parts, "이름", row.get("name", ""))
-    add_part(parts, "유형", row.get("source", ""))
-    add_part(parts, "분류", row.get("category", ""))
-    add_part(parts, "지역", build_region(row.get("address", "")))
-    add_part(parts, "기간", row.get("period", ""))
-    add_part(parts, "설명", row.get("description", ""))
-    add_part(parts, "부가 정보", row.get("items", ""))
+    addPart(parts, "이름", row.get("name", ""))
+    addPart(parts, "유형", row.get("source", ""))
+    addPart(parts, "분류", row.get("category", ""))
+    addPart(parts, "지역", buildRegion(row.get("address", "")))
+    addPart(parts, "기간", row.get("period", ""))
+    addPart(parts, "설명", row.get("description", ""))
+    addPart(parts, "부가 정보", row.get("items", ""))
 
     contents.append("\n".join(parts))
 
 df["content"] = contents
 
-df.to_csv(data_path, index=False, encoding="utf-8-sig")
+df.to_csv(dataPath, index=False, encoding="utf-8-sig")
 
 print("content 생성 완료")
 print(df.shape)

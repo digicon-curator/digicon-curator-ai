@@ -7,26 +7,26 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
 try:
-    from src.rag.paths import get_data_path, get_embedding_path
+    from src.rag.paths import getDataPath, getEmbeddingPath
     from src.rag.utils import (
-        apply_quality_filter,
-        balanced_by_source,
-        build_context,
-        detect_region,
-        faiss_search_rows,
-        filter_by_region,
-        normalize_region,
+        applyQualityFilter,
+        balancedBySource,
+        buildContext,
+        detectRegion,
+        faissSearchRows,
+        filterByRegion,
+        normalizeRegion,
     )
 except ModuleNotFoundError:
-    from paths import get_data_path, get_embedding_path
+    from paths import getDataPath, getEmbeddingPath
     from utils import (
-        apply_quality_filter,
-        balanced_by_source,
-        build_context,
-        detect_region,
-        faiss_search_rows,
-        filter_by_region,
-        normalize_region,
+        applyQualityFilter,
+        balancedBySource,
+        buildContext,
+        detectRegion,
+        faissSearchRows,
+        filterByRegion,
+        normalizeRegion,
     )
 
 
@@ -34,10 +34,10 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 model = genai.GenerativeModel("gemini-2.5-flash")
-embedding_model = SentenceTransformer("intfloat/multilingual-e5-base")
+embeddingModel = SentenceTransformer("intfloat/multilingual-e5-base")
 
-df = pd.read_csv(get_data_path(), encoding="utf-8-sig")
-embeddings = np.load(get_embedding_path())
+df = pd.read_csv(getDataPath(), encoding="utf-8-sig")
+embeddings = np.load(getEmbeddingPath())
 
 print("\n===== AI 맞춤형 로컬 여행 추천 =====")
 
@@ -46,31 +46,31 @@ interest = input("관심사를 입력하세요: ").strip()
 mood = input("선호 분위기를 입력하세요: ").strip()
 purpose = input("여행 목적을 입력하세요: ").strip()
 
-search_query = f"""
+searchQuery = f"""
 관심사:{interest}
 분위기:{mood}
 목적:{purpose}
 """
 
-quality_df = apply_quality_filter(df, min_description_len=20)
-initial_results = faiss_search_rows(
-    quality_df,
+qualityDf = applyQualityFilter(df, minDescriptionLen=20)
+initialResults = faissSearchRows(
+    qualityDf,
     embeddings,
-    embedding_model,
-    search_query,
+    embeddingModel,
+    searchQuery,
     k=80,
 )
 
-region_count = {}
-for row in initial_results:
-    region = normalize_region(row.get("address", ""))
+regionCount = {}
+for row in initialResults:
+    region = normalizeRegion(row.get("address", ""))
     if not region:
         continue
-    region_count[region] = region_count.get(region, 0) + 1
+    regionCount[region] = regionCount.get(region, 0) + 1
 
-top_regions = sorted(region_count.items(), key=lambda item: item[1], reverse=True)[:5]
+topRegions = sorted(regionCount.items(), key=lambda item: item[1], reverse=True)[:5]
 
-region_prompt = f"""
+regionPrompt = f"""
 사용자 정보
 
 연령대: {age}
@@ -79,37 +79,37 @@ region_prompt = f"""
 여행 목적: {purpose}
 
 추천 후보 지역:
-{top_regions}
+{topRegions}
 
 위 후보 중 사용자에게 가장 적합한 지역 1곳만 고르세요.
 반드시 지역명만 출력하세요.
 """
 
-selected_region_text = model.generate_content(region_prompt).text.strip()
-selected_region = detect_region(selected_region_text) or normalize_region(selected_region_text)
+selectedRegionText = model.generate_content(regionPrompt).text.strip()
+selectedRegion = detectRegion(selectedRegionText) or normalizeRegion(selectedRegionText)
 
-print(f"\n추천 지역: {selected_region}")
+print(f"\n추천 지역: {selectedRegion}")
 
-region_df = filter_by_region(quality_df, selected_region)
-if region_df.empty:
-    region_df = quality_df
+regionDf = filterByRegion(qualityDf, selectedRegion)
+if regionDf.empty:
+    regionDf = qualityDf
 
-region_results = faiss_search_rows(
-    region_df,
+regionResults = faissSearchRows(
+    regionDf,
     embeddings,
-    embedding_model,
-    search_query,
+    embeddingModel,
+    searchQuery,
     k=60,
 )
-travel_data = balanced_by_source(region_results, limit=15)
+travelData = balancedBySource(regionResults, limit=15)
 
 print("\n===== 여행 추천 검색 결과 =====\n")
-for row in travel_data:
+for row in travelData:
     print(f"[{row.get('source', '')}] {row.get('name', '')}")
 
 print("\n=========================\n")
 
-context = build_context(travel_data)
+context = buildContext(travelData)
 
 prompt = f"""
 당신은 지역 문화 전문 여행 큐레이터입니다.
@@ -122,7 +122,7 @@ prompt = f"""
 여행 목적: {purpose}
 
 추천 지역:
-{selected_region}
+{selectedRegion}
 
 지역 문화 데이터:
 {context}
