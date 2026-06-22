@@ -9,3 +9,5 @@ torch
 numpy
 
 google-generativeai
+fastapi
+uvicorn
