@@ -265,3 +265,20 @@ python src/rag/buildIndex.py
 - 원본 데이터와 축소 데이터의 행 수가 다르면, `originalIndex` 컬럼을 통해 기존 원본 임베딩을 임시로 참조할 수 있습니다.
 - 최종 시연 전에는 `embeddingsCurated.npy`와 `dataCurated.index`를 새로 생성해 데이터와 인덱스를 맞추는 것이 가장 안정적입니다.
 - Gemini 기능을 실행하려면 `.env`의 `GEMINI_API_KEY`가 반드시 필요합니다.
+
+## AI Server API
+
+```powershell
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+All endpoints return JSON.
+
+- `POST /generate`: backend-compatible story generation
+- `POST /stories`: story generation
+- `POST /recommend`: culture recommendation
+- `POST /travel`: travel course recommendation
+- `GET /trend`: culture trend analysis
+- `POST /discover`: regional culture discovery
+
+`/api/...` routes belong to the backend server contract. The AI server does not need the `/api` prefix unless the backend team decides to call it with that prefix.

@@ -45,8 +45,8 @@ def generate_story(request: GenerateRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/story")
-def story(request: GenerateRequest):
+@app.post("/stories")
+def stories(request: GenerateRequest):
     try:
         service = get_ai_service()
         return service.generate(
